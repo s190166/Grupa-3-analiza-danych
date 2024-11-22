@@ -1,1 +1,1 @@
-# Grupa-3-analiza-danych
+# Grupa-3-analiza-danych - Michał Książek, Zuzanna Łebed, Zuzanna Łomża
