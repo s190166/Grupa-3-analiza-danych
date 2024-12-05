@@ -65,7 +65,7 @@ NA_cor <- cor_mat(dane2)
 # Macierz korelacji braków
 ggcorrplot(NA_cor)
 
-# Wykres ...
+# Wykres zależności Dochodu brutto i Oceny stratyfikacji klientów dotycząca ich ogólnego doświadczenia zakupowego
 ggplot(data = dane, aes(x = gross.income, y = Rating)) + 
   geom_point() +
   geom_miss_point() +
