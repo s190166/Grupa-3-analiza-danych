@@ -1,3 +1,4 @@
+
 # Wczytaj pakiety (jeśli nie są zainstalowane, zainstaluj je najpierw)
 library(dplyr)
 
@@ -27,3 +28,8 @@ data <- data %>%
 # Sprawdź, czy są jeszcze braki w 16 kolumnie
 sum(is.na(data[[16]]))
 
+# Zapisanie danych do pliku CSV
+write.csv(data, "supermarket.csv", row.names = FALSE)
+
+# Informacja dla użytkownika
+cat("Dane zostały zapisane w pliku supermarket.csv w bieżącym katalogu roboczym.")
