@@ -8,6 +8,7 @@ library(reshape2)
 library(ggplot2)
 library(rstatix)
 library(ggcorrplot)
+library(mice)
 
 # Liczba NA
 n_miss(dane)
@@ -24,8 +25,9 @@ gg_miss_upset(dane,
 
 # Mapa cieplna liczby NA dla kolumn z NA
 gg_miss_fct(dane, fct = City)
-gg_miss_fct(dane, fct = gross.income)
-gg_miss_fct(dane, fct = Rating)
+
+gg_miss_fct(dane, fct = Branch)
+
 
 # Przekodowanie zmiennych jakościowych na ilościowe
 dane2 <- data.frame(dane, row.names = TRUE)
@@ -57,18 +59,34 @@ dane2$Date <- as.numeric(format(dane2$Date, "%Y%m%d"))
 
 dane2$Time <- as.numeric(sub(":(\\d{2}):.*", ".\\1", dane2$Time))
 
-# Korelacja danych
+# Korelacja braków
 NA_cor <- cor_mat(dane2)
-dane2$gross.margin.percentage <- NULL # "gross.margin.percentage" posiada te same wartości, przez co niemożliwym jest policzenie dla nich korelacji
+dane2$gross.margin.percentage <- NULL
 NA_cor <- cor_mat(dane2)
 
 # Macierz korelacji braków
 ggcorrplot(NA_cor)
 
-# Wykres zależności Dochodu brutto i Oceny stratyfikacji klientów dotycząca ich ogólnego doświadczenia zakupowego
-ggplot(data = dane, aes(x = gross.income, y = Rating)) + 
+# Wykres zależności "Dochodu brutto" i "Opłaty podatkowej (5%)"
+ggplot(data = dane2, aes(x = gross.income, y = Tax.5.)) + 
   geom_point() +
   geom_miss_point() +
   scale_color_manual(values = c("darkorange","cyan4")) +
   theme_minimal()
 
+# Wykres zależności "Opłaty podatkowej (5%)" (="Dochodu brutto") i "Oceny stratyfikacji klientów dotycząca ich ogólnego doświadczenia zakupowego"
+ggplot(data = dane2, aes(x = Rating, y =  Tax.5.)) + 
+  geom_point() +
+  geom_miss_point() +
+  scale_color_manual(values = c("darkorange","cyan4")) +
+  theme_minimal()
+
+# Wykres zależności "Miasta" i "Branży"
+ggplot(data = dane2, aes(x = City, y = Branch)) + 
+  geom_point() +
+  geom_miss_point() +
+  scale_color_manual(values = c("darkorange","cyan4")) +
+  theme_minimal()
+
+# Mapa NA według wierszy
+md.pattern(dane2, rotate.names = TRUE)
