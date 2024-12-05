@@ -1,4 +1,4 @@
-# Grupa-3-analiza-danych
+# Grupa-3-analiza-danych - Zuzanna łomża
 
 dane <- read.csv(file="supermarket_new.csv", header = TRUE, sep = ",", dec = ".")
 
@@ -6,6 +6,8 @@ dane <- read.csv(file="supermarket_new.csv", header = TRUE, sep = ",", dec = "."
 library(naniar)
 library(reshape2)
 library(ggplot2)
+library(rstatix)
+library(ggcorrplot)
 
 # Liczba NA
 n_miss(dane)
@@ -19,13 +21,14 @@ vis_miss(dane, sort = TRUE)
 # Wykres UpSet dla współwystępowania NA
 gg_miss_upset(dane, 
               nsets = 3)
-  
+
+# Mapa cieplna liczby NA dla kolumn z NA
+gg_miss_fct(dane, fct = City)
+gg_miss_fct(dane, fct = gross.income)
+gg_miss_fct(dane, fct = Rating)
+
 # Przekodowanie zmiennych jakościowych na ilościowe
-dane2 <- dane
-
-row.names(dane2) <- dane$Invoice.ID
-dane2$Invoice.ID <- NULL
-
+dane2 <- data.frame(dane, row.names = TRUE)
 
 dane2$Branch <- ifelse((dane2$Branch) == "A", 1,
                        ifelse(dane2$Branch == "B", 2, 0))
@@ -40,20 +43,32 @@ dane2$Gender <- ifelse((dane2$Gender) == "Male", 1, 0)
 
 dane2$Product.line <- ifelse(dane2$Product.line == "Electronic accessories", 1,
                              ifelse(dane2$Product.line == "Fashion accessories", 2,
-                                    ifelse(dane2$Product.line == "Food and beverages", 3,
-                                           ifelse(dane2$Product.line == "Health and beauty", 4,
-                                                  ifelse(dane2$Product.line == "Home and lifestyle", 5, 0)))))
+                                    ifelse(dane2$Product.line == "Food and beverage", 2,
+                                           ifelse(dane2$Product.line == "Health and beauty", 3,
+                                                  ifelse(dane2$Product.line == "Health and lifestyle", 3, 0)))))
 
 dane2$Payment <- ifelse(dane2$Payment == "Cash", 1,
                         ifelse(dane2$Payment == "Credit card", 2, 0))
 
-# Macierz korelacji braków (dla zmiennych ilościowych)
-NA_matrix <- is.na(dane2)
-NA_cor <- cor(NA_matrix)
-NA_data <- melt(NA_cor)
-ggplot(NA_data, aes(x = Var1, y = Var2, fill = value)) +
-  geom_tile() +
-  scale_fill_gradient2(low = "#81b29a", high = "#bc4b51", mid = "#f4f1de", midpoint = 0) +
-  theme_minimal() +
-  labs(title = "Macierz korelacji braków", x = "Zmienne", y = "Zmienne")
+dane2$Quantity <- as.numeric(dane2$Quantity)
+
+dane2$Date <- as.Date(dane2$Date, format = "%m/%d/%Y")
+dane2$Date <- as.numeric(format(dane2$Date, "%Y%m%d"))
+
+dane2$Time <- as.numeric(sub(":(\\d{2}):.*", ".\\1", dane2$Time))
+
+# Korelacja danych
+NA_cor <- cor_mat(dane2)
+dane2$gross.margin.percentage <- NULL # "gross.margin.percentage" posiada te same wartości, przez co niemożliwym jest policzenie dla nich korelacji
+NA_cor <- cor_mat(dane2)
+
+# Macierz korelacji braków
+ggcorrplot(NA_cor)
+
+# Wykres ...
+ggplot(data = dane, aes(x = gross.income, y = Rating)) + 
+  geom_point() +
+  geom_miss_point() +
+  scale_color_manual(values = c("darkorange","cyan4")) +
+  theme_minimal()
 
