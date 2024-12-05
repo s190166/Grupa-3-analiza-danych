@@ -19,16 +19,6 @@ vis_miss(dane, sort = TRUE)
 # Wykres UpSet dla współwystępowania NA
 gg_miss_upset(dane, 
               nsets = 3)
-
-# Macierz korelacji braków (dla zmiennych jakościowych i ilościowych)
-NA_matrix <- is.na(dane)
-NA_cor <- cor(NA_matrix)
-NA_data <- melt(NA_cor)
-ggplot(NA_data, aes(x = Var1, y = Var2, fill = value)) +
-  geom_tile() +
-  scale_fill_gradient2(low = "#81b29a", high = "#bc4b51", mid = "#f4f1de", midpoint = 0) +
-  theme_minimal() +
-  labs(title = "Macierz korelacji braków", x = "Zmienne", y = "Zmienne")
   
 # Przekodowanie zmiennych jakościowych na ilościowe
 dane2 <- dane
