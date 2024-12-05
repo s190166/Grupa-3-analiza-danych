@@ -23,7 +23,7 @@ vis_miss(dane, sort = TRUE)
 gg_miss_upset(dane, 
               nsets = 3)
 
-# Mapa cieplna liczby NA dla kolumn z NA
+# Mapa cieplna liczby NA dla "Miasto" ("Oddział")
 gg_miss_fct(dane, fct = City)
 
 gg_miss_fct(dane, fct = Branch)
@@ -55,7 +55,7 @@ dane2$Payment <- ifelse(dane2$Payment == "Cash", 1,
 dane2$Quantity <- as.numeric(dane2$Quantity)
 
 dane2$Date <- as.Date(dane2$Date, format = "%m/%d/%Y")
-dane2$Date <- as.numeric(format(dane2$Date, "%Y%m%d"))
+dane2$Date <- as.numeric(format(dane2$Date, "%d%m%Y"))
 
 dane2$Time <- as.numeric(sub(":(\\d{2}):.*", ".\\1", dane2$Time))
 
