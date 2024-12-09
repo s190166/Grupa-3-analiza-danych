@@ -6,9 +6,6 @@ library(mice)
 # Wczytanie danych z pliku CSV
 data <- read.csv("C:/Users/zuzal/OneDrive/Desktop/analiza/supermarket_new.csv")
 
-# Podgląd brakujących danych
-md.pattern(data)
-
 # Uzupełnianie brakujących wartości w kolumnie 'Rating'
 imputed_data <- mice(data, m = 5, method = "pmm", maxit = 50, seed = 123)
 
