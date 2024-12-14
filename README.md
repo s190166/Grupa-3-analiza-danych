@@ -28,6 +28,9 @@ gg_miss_upset(data,
 ## Mapa cieplna liczby NA dla "Miasto" ("Oddział")
 gg_miss_fct(data, fct = City)
 
+## Mapa NA według wierszy
+md.pattern(data, rotate.names = TRUE)
+
 ## Przekodowanie zmiennych jakościowych na ilościowe
 data2 <- data.frame(data, row.names = TRUE)
 
@@ -44,9 +47,9 @@ data2$Gender <- ifelse((data2$Gender) == "Male", 1, 0)
 
 data2$Product.line <- ifelse(data2$Product.line == "Electronic accessories", 1,
                              ifelse(data2$Product.line == "Fashion accessories", 2,
-                                    ifelse(data2$Product.line == "Food and beverage", 2,
-                                           ifelse(data2$Product.line == "Health and beauty", 3,
-                                                  ifelse(data2$Product.line == "Health and lifestyle", 3, 0)))))
+                                    ifelse(data2$Product.line == "Food and beverage", 3,
+                                           ifelse(data2$Product.line == "Health and beauty", 4,
+                                                  ifelse(data2$Product.line == "Sports and travel", 5, 0)))))
 
 data2$Payment <- ifelse(data2$Payment == "Cash", 1,
                         ifelse(data2$Payment == "Credit card", 2, 0))
@@ -57,7 +60,7 @@ data2$Date <- as.Date(data2$Date, format = "%m/%d/%Y")
 data2$Date <- as.numeric(format(data2$Date, "%d%m%Y"))
 
 data2$Time <- as.numeric(sub(":(\\d{2}):.*", ".\\1", data2$Time))
-
+str
 ## Korelacja braków
 NA_cor <- cor_mat(data2)
 #### Wartości gross.merge.percentage powtażają się w każdym wierszu, przez co niemożliwym jest policzenie korelacji dla tej zmiennej
@@ -70,9 +73,6 @@ NA_cor2 <- cor_mat(data_cor)
 
 ## Macierz korelacji braków
 ggcorrplot(NA_cor2)
-
-## Mapa NA według wierszy
-md.pattern(data2, rotate.names = TRUE)
 
 ## Wykres zależności "Dochodu brutto" i "Opłaty podatkowej (5%)"
 ggplot(data = data2, aes(x = gross.income, y = Tax.5.)) + 
