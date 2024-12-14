@@ -1,6 +1,6 @@
-# Grupa-3-analiza-danych - Zuzanna łomża
+# Grupa-3-analiza-danych - Zuzanna Łomża
 
-dane <- read.csv(file="supermarket_new.csv", header = TRUE, sep = ",", dec = ".")
+data <- read.csv("supermarket_new.csv")
 
 # Pakiety
 library(naniar)
@@ -11,88 +11,70 @@ library(ggcorrplot)
 library(mice)
 
 # Liczba NA
-n_miss(dane)
+n_miss(data)
 
 # Tabela podsumowująca liczbę NA
-miss_var_summary(dane)
+miss_var_summary(data)
 
 # Wizualizacja lokalizacji NA (Shadow map)
-vis_miss(dane, sort = TRUE)
+vis_miss(data, sort = TRUE)
 
 # Wykres UpSet dla współwystępowania NA
-gg_miss_upset(dane, 
+gg_miss_upset(data, 
               nsets = 3)
 
 # Mapa cieplna liczby NA dla "Miasto" ("Oddział")
-gg_miss_fct(dane, fct = City)
-
-gg_miss_fct(dane, fct = Branch)
-
+gg_miss_fct(data, fct = City)
 
 # Przekodowanie zmiennych jakościowych na ilościowe
-dane2 <- data.frame(dane, row.names = TRUE)
+data2 <- data.frame(data, row.names = TRUE)
 
-dane2$Branch <- ifelse((dane2$Branch) == "A", 1,
-                       ifelse(dane2$Branch == "B", 2, 0))
+data2$Branch <- ifelse((data2$Branch) == "A", 1,
+                       ifelse(data2$Branch == "B", 2, 0))
 
-dane2$City <- ifelse(is.na(dane2$City), NA,
-                    ifelse(dane2$City == "Naypyitaw", 1,
-                       ifelse(dane2$City == "Mandalay", 2, 0)))
+data2$City <- ifelse(is.na(data2$City), NA,
+                    ifelse(data2$City == "Naypyitaw", 1,
+                       ifelse(data2$City == "Mandalay", 2, 0)))
 
-dane2$Customer.type <- ifelse((dane2$Customer.type) == "Member", 1, 0)
+data2$Customer.type <- ifelse((data2$Customer.type) == "Member", 1, 0)
                           
-dane2$Gender <- ifelse((dane2$Gender) == "Male", 1, 0)
+data2$Gender <- ifelse((data2$Gender) == "Male", 1, 0)
 
-dane2$Product.line <- ifelse(dane2$Product.line == "Electronic accessories", 1,
-                             ifelse(dane2$Product.line == "Fashion accessories", 2,
-                                    ifelse(dane2$Product.line == "Food and beverage", 2,
-                                           ifelse(dane2$Product.line == "Health and beauty", 3,
-                                                  ifelse(dane2$Product.line == "Health and lifestyle", 3, 0)))))
+data2$Product.line <- ifelse(data2$Product.line == "Electronic accessories", 1,
+                             ifelse(data2$Product.line == "Fashion accessories", 2,
+                                    ifelse(data2$Product.line == "Food and beverage", 2,
+                                           ifelse(data2$Product.line == "Health and beauty", 3,
+                                                  ifelse(data2$Product.line == "Health and lifestyle", 3, 0)))))
 
-dane2$Payment <- ifelse(dane2$Payment == "Cash", 1,
-                        ifelse(dane2$Payment == "Credit card", 2, 0))
+data2$Payment <- ifelse(data2$Payment == "Cash", 1,
+                        ifelse(data2$Payment == "Credit card", 2, 0))
 
-dane2$Quantity <- as.numeric(dane2$Quantity)
+data2$Quantity <- as.numeric(data2$Quantity)
 
-dane2$Date <- as.Date(dane2$Date, format = "%m/%d/%Y")
-dane2$Date <- as.numeric(format(dane2$Date, "%d%m%Y"))
+data2$Date <- as.Date(data2$Date, format = "%m/%d/%Y")
+data2$Date <- as.numeric(format(data2$Date, "%d%m%Y"))
 
-dane2$Time <- as.numeric(sub(":(\\d{2}):.*", ".\\1", dane2$Time))
+data2$Time <- as.numeric(sub(":(\\d{2}):.*", ".\\1", data2$Time))
 
 # Korelacja braków
-NA_cor <- cor_mat(dane2)
+NA_cor <- cor_mat(data2)
 #### Wartości gross.merge.percentage powtażają się w każdym wierszu, przez co niemożliwym jest policzenie korelacji dla tej zmiennej
 
 # Wykluczenie zmiennej "gross.merge.percentage"
-dane_cor <- dane2
+data_cor <- data2 %>%
+            mutate(gross.margin.percentage = NULL)
 
-dane_cor$gross.margin.percentage <- NULL
-
-NA_cor2 <- cor_mat(dane_cor)
+NA_cor2 <- cor_mat(data_cor)
 
 # Macierz korelacji braków
 ggcorrplot(NA_cor2)
 
-# Wykres zależności "Dochodu brutto" i "Opłaty podatkowej (5%)"
-ggplot(data = dane2, aes(x = gross.income, y = Tax.5.)) + 
-  geom_point() +
-  geom_miss_point() +
-  scale_color_manual(values = c("darkorange","cyan4")) +
-  theme_minimal()
-
-# Wykres zależności "Opłaty podatkowej (5%)" (="Dochodu brutto") i "Oceny stratyfikacji klientów dotycząca ich ogólnego doświadczenia zakupowego"
-ggplot(data = dane2, aes(x = Rating, y =  Tax.5.)) + 
-  geom_point() +
-  geom_miss_point() +
-  scale_color_manual(values = c("darkorange","cyan4")) +
-  theme_minimal()
-
-# Wykres zależności "Miasta" i "Branży"
-ggplot(data = dane2, aes(x = City, y = Branch)) + 
-  geom_point() +
-  geom_miss_point() +
-  scale_color_manual(values = c("darkorange","cyan4")) +
-  theme_minimal()
-
 # Mapa NA według wierszy
-md.pattern(dane2, rotate.names = TRUE)
+md.pattern(data2, rotate.names = TRUE)
+
+# Wykres zależności "Dochodu brutto" i "Opłaty podatkowej (5%)"
+ggplot(data = data2, aes(x = gross.income, y = Tax.5.)) + 
+  geom_point() +
+  geom_miss_point() +
+  scale_color_manual(values = c("darkorange","cyan4")) +
+  theme_minimal()
