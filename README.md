@@ -60,7 +60,7 @@ data2$Date <- as.Date(data2$Date, format = "%m/%d/%Y")
 data2$Date <- as.numeric(format(data2$Date, "%d%m%Y"))
 
 data2$Time <- as.numeric(sub(":(\\d{2}):.*", ".\\1", data2$Time))
-str
+
 ## Korelacja braków
 NA_cor <- cor_mat(data2)
 #### Wartości gross.merge.percentage powtażają się w każdym wierszu, przez co niemożliwym jest policzenie korelacji dla tej zmiennej
@@ -73,13 +73,6 @@ NA_cor2 <- cor_mat(data_cor)
 
 ## Macierz korelacji braków
 ggcorrplot(NA_cor2)
-
-## Wykres zależności "Dochodu brutto" i "Opłaty podatkowej (5%)"
-ggplot(data = data2, aes(x = gross.income, y = Tax.5.)) + 
-  geom_point() +
-  geom_miss_point() +
-  scale_color_manual(values = c("darkorange","cyan4")) +
-  theme_minimal()
   
 
 # Walidacja danych
