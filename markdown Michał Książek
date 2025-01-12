@@ -1,0 +1,236 @@
+---
+title: "Zamian NA na dane"
+output: html_document
+date: "2025-01-11"
+---
+
+Zamiana
+
+```{r setup, include=FALSE}
+# Instalacja i załadowanie pakietów (jeśli nie są zainstalowane)
+if (!require("dplyr")) install.packages("dplyr")
+if (!require("mice")) install.packages("mice")
+library(dplyr)
+library(mice)
+
+# Wczytaj dane
+data <- supermarket
+
+# Zmapuj zależność między Branch a City
+branch_to_city <- data %>%
+  filter(!is.na(City)) %>%
+  distinct(Branch, City) %>%
+  group_by(Branch) %>%
+  summarize(City = first(City))
+
+# Połącz dane, aby uzupełnić brakujące wartości
+data <- data %>%
+  left_join(branch_to_city, by = "Branch", suffix = c("", ".y")) %>%
+  mutate(City = ifelse(is.na(City), City.y, City)) %>%
+  select(-City.y)
+
+# Sprawdź brakujące wartości w kolumnie City
+sum(is.na(data$City))
+
+# Zastąp wartości NA w 16 kolumnie wartościami z 9 kolumny
+data <- data %>%
+  mutate(`gross income` = ifelse(is.na(`gross income`), data[[9]], `gross income`))
+
+# Sprawdź brakujące wartości w kolumnie 'gross income'
+sum(is.na(data$`gross income`))
+
+# Uzupełnianie brakujących wartości w całym zbiorze danych przy użyciu pakietu mice
+# (upewnij się, że dane wejściowe nie zawierają nienumerowalnych kolumn)
+imputed_data <- mice(data, m = 1, method = "pmm", maxit = 50, seed = 123)
+
+# Wybór uzupełnionego zestawu danych
+data <- complete(imputed_data, 1)
+
+# Sprawdzenie liczby brakujących wartości w całym zbiorze danych
+sum(is.na(data))
+
+# Eksport danych do pliku CSV
+write.csv(data, "supermarket_filled.csv", row.names = FALSE)
+
+
+```
+
+```{r setup, include=FALSE}
+# Wczytanie bibliotek
+library(ggplot2)
+library(gridExtra)
+
+# Wczytanie danych z pliku CSV
+data <- read.csv("supermarket_filled.csv")
+
+# Rysowanie boxplotów dla wybranych zmiennych
+b1 <- ggplot(data, aes(y = Unit.price)) +
+  geom_boxplot() +
+  labs(title = "Boxplot: Unit Price") +
+  theme_minimal()
+
+b2 <- ggplot(data, aes(y = Total)) +
+  geom_boxplot() +
+  labs(title = "Boxplot: Total") +
+  theme_minimal()
+
+# Rysowanie histogramów dla wybranych zmiennych
+h1 <- ggplot(data, aes(x = Unit.price)) +
+  geom_histogram(bins = 30, fill = "#0c4c8a") +
+  labs(title = "Histogram: Unit Price", x = "Unit Price", y = "Frequency") +
+  theme_minimal()
+
+h2 <- ggplot(data, aes(x = Total)) +
+  geom_histogram(bins = 30, fill = "#0c4c8a") +
+  labs(title = "Histogram: Total", x = "Total", y = "Frequency") +
+  theme_minimal()
+
+# Wyświetlenie wykresów w siatce 2x2
+grid.arrange(b1, b2, h1, h2, nrow = 2)
+
+replace_outliers_with_median <- function(column) {
+  Q1 <- quantile(column, 0.25, na.rm = TRUE)
+  Q3 <- quantile(column, 0.75, na.rm = TRUE)
+  IQR <- Q3 - Q1
+  lower_bound <- Q1 - 1.5 * IQR
+  upper_bound <- Q3 + 1.5 * IQR
+  column[column < lower_bound | column > upper_bound] <- median(column, na.rm = TRUE)
+  return(column)
+}
+
+# Analiza wartości odstających dla kolumn
+numeric_columns <- c("Unit.price", "Total", "Quantity", "Rating")
+outliers <- lapply(data[numeric_columns], detect_outliers)
+
+# Wyświetlenie wartości odstających
+outliers
+
+# Zastąpienie wartości odstających w danych
+data[numeric_columns] <- lapply(data[numeric_columns], replace_outliers_with_median)
+
+# Sprawdzenie wartości odstających po zastąpieniu
+outliers_after <- lapply(data[numeric_columns], detect_outliers)
+
+# Wyświetlenie liczby wartości odstających po zastąpieniu
+cat("\nLiczba wartości odstających po zastąpieniu:\n")
+sapply(outliers_after, length)
+
+# Porównanie przed i po w postaci tabeli
+comparison <- data.frame(
+  Variable = numeric_columns,
+  Outliers_Before = sapply(outliers_before, length),
+  Outliers_After = sapply(outliers_after, length)
+)
+print(comparison)
+
+```
+
+```{r setup, include=FALSE}
+# Wczytanie bibliotek
+library(ggplot2)
+library(dplyr)
+
+# Wczytanie danych z pliku CSV
+data <- read.csv("supermarket_filled.csv")
+
+# Podział danych według płci i metody płatności
+gender_payment_counts <- data %>%
+  group_by(Gender, Payment) %>%
+  summarise(Count = n()) %>%
+  mutate(Percentage = round((Count / sum(Count)) * 100, 1)) %>%
+  ungroup()
+
+# Tworzenie wykresu kołowego dla kobiet
+plot_female <- ggplot(
+  gender_payment_counts %>% filter(Gender == "Female"),
+  aes(x = "", y = Percentage, fill = Payment)
+) +
+  geom_bar(stat = "identity", width = 1) +
+  coord_polar("y", start = 0) +
+  theme_void() +
+  labs(title = "Metody płatności kobiet") +
+  geom_text(aes(label = paste0(Percentage, "%")), position = position_stack(vjust = 0.5)) +
+  scale_fill_brewer(palette = "Set3")
+
+# Tworzenie wykresu kołowego dla mężczyzn
+plot_male <- ggplot(
+  gender_payment_counts %>% filter(Gender == "Male"),
+  aes(x = "", y = Percentage, fill = Payment)
+) +
+  geom_bar(stat = "identity", width = 1) +
+  coord_polar("y", start = 0) +
+  theme_void() +
+  labs(title = "Metody płatności mężczyzn") +
+  geom_text(aes(label = paste0(Percentage, "%")), position = position_stack(vjust = 0.5)) +
+  scale_fill_brewer(palette = "Set3")
+
+# Wyświetlenie wykresów obok siebie
+library(gridExtra)
+grid.arrange(plot_female, plot_male, ncol = 2)
+
+# Tworzenie histogramu z podziałem na miasta
+ggplot(data, aes(x = Rating)) +
+  geom_histogram(
+    binwidth = 0.5,  # Szerokość binów
+    fill = "blue",   # Kolor wypełnienia
+    color = "black"  # Kolor obramowania
+  ) +
+  facet_wrap(~ City) +  # Podział na miasta
+  labs(
+    title = "Rozkład ocen klientów w różnych miastach",
+    x = "Ocena",
+    y = "Liczba klientów"
+  ) +
+  theme_minimal()  # Estetyczny motyw
+
+
+# Tworzenie wykresu słópkowego 
+# Obliczanie średniej sprzedaży dla każdej linii produktów
+average_sales <- aggregate(Total ~ Product.line, data = data, mean)
+
+# Zwiększenie marginesów dla większej przestrzeni na etykiety
+par(mar = c(8, 4, 4, 2) + 0.1)
+
+# Tworzenie wykresu słupkowego z bardziej czytelnymi etykietami
+barplot(
+  average_sales$Total, 
+  names.arg = average_sales$Product.line, 
+  col = "lightblue",  # Kolor słupków
+  main = "Średnia sprzedaż według linii produktów", 
+  xlab = "",          # Usuń opis osi X, aby nie dublować etykiet
+  ylab = "Średnia sprzedaż",
+  las = 2,            # Pionowe etykiety osi X
+  cex.names = 0.6     # Zmniejszenie rozmiaru tekstu etykiet
+)
+
+# Dodanie opisu osi X poniżej wykresu
+mtext("Linia produktów", side = 1, line = 7, cex = 1.2)
+
+
+# Tworzenie wykresu trendów 
+# Konwersja kolumny 'Date' na format daty
+data$Date <- as.Date(data$Date, format = "%m/%d/%Y")
+
+# Grupowanie danych według daty i obliczanie całkowitej sprzedaży
+daily_sales <- aggregate(Total ~ Date, data = data, sum)
+
+# Tworzenie wykresu liniowego
+plot(
+  daily_sales$Date, 
+  daily_sales$Total, 
+  type = "l",             # Typ wykresu: linia
+  col = "blue",           # Kolor linii
+  lwd = 2,                # Grubość linii
+  main = "Sprzedaż w czasie", 
+  xlab = "Data", 
+  ylab = "Całkowita sprzedaż"
+)
+
+# Dodanie punktów na wykresie dla lepszej widoczności
+points(
+  daily_sales$Date, 
+  daily_sales$Total, 
+  col = "black",            # Kolor punktów
+  pch = 16                # Typ punktów: kropki
+)
+```
