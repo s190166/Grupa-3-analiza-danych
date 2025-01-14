@@ -6,9 +6,10 @@ date: "2025-01-11"
 
 ------------------------------------------------------------------------
 
-2.  Czyszczenie danych z NA
+### 2. Czyszczenie danych z NA
 
-    Poniższy kod uzupełnia brakujące wartości w kolumnach na podstawie zależności i imputacji. Kolumna `City` została uzupełniona na podstawie jednoznacznej relacji z kolumną `Branch`. Braki w kolumnie `gross income` zastąpiono wartościami z kolumny `Tax 5%`, ponieważ dane te były tożsame. Braki w kolumnie `Rating` uzupełniono za pomocą imputacji z pakietu `mice`, wykorzystując metodę dopasowania predyktywnego (`pmm`).
+Poniższy kod uzupełnia brakujące wartości w kolumnach na podstawie zależności i imputacji. Kolumna `City` została uzupełniona na podstawie jednoznacznej relacji z kolumną `Branch`. Braki w kolumnie `gross income` zastąpiono wartościami z kolumny `Tax 5%`, ponieważ dane te były tożsame. Braki w kolumnie `Rating` uzupełniono za pomocą imputacji z pakietu `mice`, wykorzystując metodę dopasowania predyktywnego (`pmm`).
+
 
 ```{r setup, include=FALSE}
 # Instalacja i załadowanie pakietów (jeśli nie są zainstalowane)
@@ -59,7 +60,9 @@ write.csv(data, "supermarket_filled.csv", row.names = FALSE)
 
 ```
 
+## 3. Wartości Odstające
 
+Wartości odstające to obserwacje znacząco odbiegające od reszty danych, które mogą zniekształcać wyniki analiz statystycznych. Aby zminimalizować ich wpływ, przeprowadzono analizę zmiennych `Unit.price`, `Total`, `Quantity` i `Rating`.
 
 ```{r setup, include=FALSE}
 # Wczytanie bibliotek
@@ -103,140 +106,76 @@ replace_outliers_with_median <- function(column) {
   column[column < lower_bound | column > upper_bound] <- median(column, na.rm = TRUE)
   return(column)
 }
+```
 
-# Analiza wartości odstających dla kolumn
+W przypadku analizowanych zmiennych „Unit Price” i „Total” zaobserwowano obecność wartości odstających.
+
+Dla zmiennej **„Unit Price”** mediana wynosi około 55 dolarów, natomiast wartości maksymalne przekraczają 100 dolarów, co wskazuje na obecność wyjątkowo wysokich wartości, które znacznie przewyższają typowy zakres cen jednostkowych produktów.
+
+Dla zmiennej **„Total”** mediana oscyluje w granicach 250 dolarów, podczas gdy wartość maksymalna wynosi ponad 1000 dolarów. Tak duże różnice sugerują, że pewne transakcje znacząco odbiegają od typowego poziomu całkowitych kwot zakupów.
+
+Obecność takich wartości odstających może mieć istotny wpływ na wyniki analiz statystycznych, szczególnie w przypadku miar wrażliwych na ekstremalne wartości, takich jak średnia arytmetyczna. Aby zminimalizować ich wpływ i poprawić jakość dalszej analizy danych, wartości odstające zostały zastąpione medianą zmiennych.
+
+Działanie to pozwala na bardziej reprezentatywną ocenę danych, co może mieć kluczowe znaczenie w kontekście analizy zachowań klientów, segmentacji rynku lub przewidywania przyszłych trendów sprzedażowych.
+
+
+```{r setup, include=FALSE}
+# Wybór kolumn numerycznych
 numeric_columns <- c("Unit.price", "Total", "Quantity", "Rating")
-outliers <- lapply(data[numeric_columns], detect_outliers)
 
-# Wyświetlenie wartości odstających
-outliers
+# Funkcja do wykrywania wartości odstających
+detect_outliers <- function(column) {
+  Q1 <- quantile(column, 0.25, na.rm = TRUE)
+  Q3 <- quantile(column, 0.75, na.rm = TRUE)
+  IQR <- Q3 - Q1
+  lower_bound <- Q1 - 1.5 * IQR
+  upper_bound <- Q3 + 1.5 * IQR
+  which(column < lower_bound | column > upper_bound)
+}
 
-# Zastąpienie wartości odstających w danych
+# Analiza wartości odstających przed zastąpieniem
+outliers_before <- lapply(data[numeric_columns], detect_outliers)
+```
+
+Wyświetlanie wartości obstających
+
+```{r setup, include=FALSE}
+# Wyświetlanie wartości odstających
+print(outliers_before$Total)
+```
+
+Wartości obstające zostały zastąpione stosująć medianę.
+
+```{r setup, include=FALSE}
+# Zastąpienie wartości odstających medianą
+replace_outliers_with_median <- function(column) {
+  Q1 <- quantile(column, 0.25, na.rm = TRUE)
+  Q3 <- quantile(column, 0.75, na.rm = TRUE)
+  IQR <- Q3 - Q1
+  lower_bound <- Q1 - 1.5 * IQR
+  upper_bound <- Q3 + 1.5 * IQR
+  column[column < lower_bound | column > upper_bound] <- median(column, na.rm = TRUE)
+  return(column)
+}
+
 data[numeric_columns] <- lapply(data[numeric_columns], replace_outliers_with_median)
 
-# Sprawdzenie wartości odstających po zastąpieniu
+# Analiza wartości odstających po zastąpieniu
 outliers_after <- lapply(data[numeric_columns], detect_outliers)
 
 # Wyświetlenie liczby wartości odstających po zastąpieniu
 cat("\nLiczba wartości odstających po zastąpieniu:\n")
 sapply(outliers_after, length)
 
-# Porównanie przed i po w postaci tabeli
+# Porównanie wartości odstających przed i po
 comparison <- data.frame(
   Variable = numeric_columns,
   Outliers_Before = sapply(outliers_before, length),
   Outliers_After = sapply(outliers_after, length)
 )
 print(comparison)
-
 ```
 
-```{r setup, include=FALSE}
-# Wczytanie bibliotek
-library(ggplot2)
-library(dplyr)
+Zastąpienie wartości odstających w danych pozwala na uzyskanie bardziej reprezentatywnych wyników, eliminując wpływ skrajnych wartości, które mogą zniekształcać analizy. Dzięki temu modelowanie i wnioskowanie staje się bardziej precyzyjne, a interpretacja danych jest łatwiejsza i bardziej wiarygodna. Takie podejście pomaga lepiej uchwycić rzeczywiste zależności w analizowanej próbie.
 
-# Wczytanie danych z pliku CSV
-data <- read.csv("supermarket_filled.csv")
-
-# Podział danych według płci i metody płatności
-gender_payment_counts <- data %>%
-  group_by(Gender, Payment) %>%
-  summarise(Count = n()) %>%
-  mutate(Percentage = round((Count / sum(Count)) * 100, 1)) %>%
-  ungroup()
-
-# Tworzenie wykresu kołowego dla kobiet
-plot_female <- ggplot(
-  gender_payment_counts %>% filter(Gender == "Female"),
-  aes(x = "", y = Percentage, fill = Payment)
-) +
-  geom_bar(stat = "identity", width = 1) +
-  coord_polar("y", start = 0) +
-  theme_void() +
-  labs(title = "Metody płatności kobiet") +
-  geom_text(aes(label = paste0(Percentage, "%")), position = position_stack(vjust = 0.5)) +
-  scale_fill_brewer(palette = "Set3")
-
-# Tworzenie wykresu kołowego dla mężczyzn
-plot_male <- ggplot(
-  gender_payment_counts %>% filter(Gender == "Male"),
-  aes(x = "", y = Percentage, fill = Payment)
-) +
-  geom_bar(stat = "identity", width = 1) +
-  coord_polar("y", start = 0) +
-  theme_void() +
-  labs(title = "Metody płatności mężczyzn") +
-  geom_text(aes(label = paste0(Percentage, "%")), position = position_stack(vjust = 0.5)) +
-  scale_fill_brewer(palette = "Set3")
-
-# Wyświetlenie wykresów obok siebie
-library(gridExtra)
-grid.arrange(plot_female, plot_male, ncol = 2)
-
-# Tworzenie histogramu z podziałem na miasta
-ggplot(data, aes(x = Rating)) +
-  geom_histogram(
-    binwidth = 0.5,  # Szerokość binów
-    fill = "blue",   # Kolor wypełnienia
-    color = "black"  # Kolor obramowania
-  ) +
-  facet_wrap(~ City) +  # Podział na miasta
-  labs(
-    title = "Rozkład ocen klientów w różnych miastach",
-    x = "Ocena",
-    y = "Liczba klientów"
-  ) +
-  theme_minimal()  # Estetyczny motyw
-
-
-# Tworzenie wykresu słópkowego 
-# Obliczanie średniej sprzedaży dla każdej linii produktów
-average_sales <- aggregate(Total ~ Product.line, data = data, mean)
-
-# Zwiększenie marginesów dla większej przestrzeni na etykiety
-par(mar = c(8, 4, 4, 2) + 0.1)
-
-# Tworzenie wykresu słupkowego z bardziej czytelnymi etykietami
-barplot(
-  average_sales$Total, 
-  names.arg = average_sales$Product.line, 
-  col = "lightblue",  # Kolor słupków
-  main = "Średnia sprzedaż według linii produktów", 
-  xlab = "",          # Usuń opis osi X, aby nie dublować etykiet
-  ylab = "Średnia sprzedaż",
-  las = 2,            # Pionowe etykiety osi X
-  cex.names = 0.6     # Zmniejszenie rozmiaru tekstu etykiet
-)
-
-# Dodanie opisu osi X poniżej wykresu
-mtext("Linia produktów", side = 1, line = 7, cex = 1.2)
-
-
-# Tworzenie wykresu trendów 
-# Konwersja kolumny 'Date' na format daty
-data$Date <- as.Date(data$Date, format = "%m/%d/%Y")
-
-# Grupowanie danych według daty i obliczanie całkowitej sprzedaży
-daily_sales <- aggregate(Total ~ Date, data = data, sum)
-
-# Tworzenie wykresu liniowego
-plot(
-  daily_sales$Date, 
-  daily_sales$Total, 
-  type = "l",             # Typ wykresu: linia
-  col = "blue",           # Kolor linii
-  lwd = 2,                # Grubość linii
-  main = "Sprzedaż w czasie", 
-  xlab = "Data", 
-  ylab = "Całkowita sprzedaż"
-)
-
-# Dodanie punktów na wykresie dla lepszej widoczności
-points(
-  daily_sales$Date, 
-  daily_sales$Total, 
-  col = "black",            # Kolor punktów
-  pch = 16                # Typ punktów: kropki
-)
-```
+### 4. Wykresy
