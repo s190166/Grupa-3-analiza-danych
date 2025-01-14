@@ -40,24 +40,60 @@ replace_outliers_with_median <- function(column) {
   return(column)
 }
 
-# Analiza wartości odstających dla kolumn
+# Wybór kolumn numerycznych
 numeric_columns <- c("Unit.price", "Total", "Quantity", "Rating")
-outliers <- lapply(data[numeric_columns], detect_outliers)
 
-# Wyświetlenie wartości odstających
-outliers
+# Funkcja do wykrywania wartości odstających
+detect_outliers <- function(column) {
+  Q1 <- quantile(column, 0.25, na.rm = TRUE)
+  Q3 <- quantile(column, 0.75, na.rm = TRUE)
+  IQR <- Q3 - Q1
+  lower_bound <- Q1 - 1.5 * IQR
+  upper_bound <- Q3 + 1.5 * IQR
+  which(column < lower_bound | column > upper_bound)
+}
 
-# Zastąpienie wartości odstających w danych
+# Analiza wartości odstających przed zastąpieniem
+outliers_before <- lapply(data[numeric_columns], detect_outliers)
+
+# Wyświetlenie wartości odstających przed zastąpieniem
+cat("\nLiczba wartości odstających przed zastąpieniem:\n")
+sapply(outliers_before, length)
+
+# Zastąpienie wartości odstających medianą
+replace_outliers_with_median <- function(column) {
+  Q1 <- quantile(column, 0.25, na.rm = TRUE)
+  Q3 <- quantile(column, 0.75, na.rm = TRUE)
+  IQR <- Q3 - Q1
+  lower_bound <- Q1 - 1.5 * IQR
+  upper_bound <- Q3 + 1.5 * IQR
+  column[column < lower_bound | column > upper_bound] <- median(column, na.rm = TRUE)
+  return(column)
+}
+
 data[numeric_columns] <- lapply(data[numeric_columns], replace_outliers_with_median)
 
-# Sprawdzenie wartości odstających po zastąpieniu
+# Analiza wartości odstających po zastąpieniu
 outliers_after <- lapply(data[numeric_columns], detect_outliers)
 
-# Wyświetlenie liczby wartości odstających po zastąpieniu
-cat("\nLiczba wartości odstających po zastąpieniu:\n")
-sapply(outliers_after, length)
+# Sprawdzenie liczby wartości odstających przed zastąpieniem
+outliers_before <- lapply(data[numeric_columns], detect_outliers)
 
-# Porównanie przed i po w postaci tabeli
+# Liczba wartości odstających przed i po zastąpieniu
+comparison <- data.frame(
+  Variable = numeric_columns,
+  Outliers_Before = sapply(outliers_before, length),
+  Outliers_After = sapply(outliers_after, length)
+)
+
+# Wyświetlenie tabeli w formacie Markdown
+library(knitr)
+kable(comparison, 
+      col.names = c("Zmienna", "Liczba wartości odstających przed", "Liczba wartości odstających po"),
+      caption = "Porównanie liczby wartości odstających przed i po zastąpieniu")
+
+
+# Porównanie wartości odstających przed i po
 comparison <- data.frame(
   Variable = numeric_columns,
   Outliers_Before = sapply(outliers_before, length),

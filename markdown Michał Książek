@@ -4,7 +4,11 @@ output: html_document
 date: "2025-01-11"
 ---
 
-Zamiana
+------------------------------------------------------------------------
+
+2.  Czyszczenie danych z NA
+
+    Poniższy kod uzupełnia brakujące wartości w kolumnach na podstawie zależności i imputacji. Kolumna `City` została uzupełniona na podstawie jednoznacznej relacji z kolumną `Branch`. Braki w kolumnie `gross income` zastąpiono wartościami z kolumny `Tax 5%`, ponieważ dane te były tożsame. Braki w kolumnie `Rating` uzupełniono za pomocą imputacji z pakietu `mice`, wykorzystując metodę dopasowania predyktywnego (`pmm`).
 
 ```{r setup, include=FALSE}
 # Instalacja i załadowanie pakietów (jeśli nie są zainstalowane)
@@ -54,6 +58,8 @@ write.csv(data, "supermarket_filled.csv", row.names = FALSE)
 
 
 ```
+
+
 
 ```{r setup, include=FALSE}
 # Wczytanie bibliotek
