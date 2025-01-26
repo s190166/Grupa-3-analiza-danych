@@ -1,0 +1,172 @@
+---
+title: "statystyki opisowe"
+output: html_document
+date: "2025-01-26"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(tidyr)
+library(knitr)
+library(moments)
+library(ggplot2)
+```
+
+# Wczytanie danych
+
+```{r wczytanie_danych}
+data <- read.csv("supermarket_new_1_")
+```
+
+## Funkcja do generowania statystyk
+
+```{r Statystyki_opisowe}
+statystyki <- function(x) {
+  data.frame(
+    "Min" = min(x, na.rm = TRUE),
+    "Max" = max(x, na.rm = TRUE),
+    "Kwartyl dolny" = quantile(x, 0.25, na.rm = TRUE),
+    "Mediana" = round(median(x, na.rm = TRUE), 2),
+    "Kwartyl górny" = quantile(x, 0.75, na.rm = TRUE),
+    "Średnia" = round(mean(x, na.rm = TRUE), 2),
+    "Odch. std." = round(sd(x, na.rm = TRUE), 2),
+    "IQR" = round(IQR(x, na.rm = TRUE), 2),
+    "Odchylenie ćwiartkowe" = round(IQR(x, na.rm = TRUE) / 2, 2),
+    "Odch. std. w %" = round((sd(x, na.rm = TRUE) / mean(x, na.rm = TRUE)) * 100, 2),
+    "Odch. ćwiartkowe w %" = round((IQR(x, na.rm = TRUE) / median(x, na.rm = TRUE)) * 100, 2),
+    "Skośność" = round(skewness(x, na.rm = TRUE), 2),
+    "Kurtoza" = round(kurtosis(x, na.rm = TRUE), 2)
+  )
+}
+```
+
+# Generowanie statystyk dla 'Total'wg płci
+
+```{r statystyki_total_income_wg_gender}
+statystyki_total <- data %>%
+  group_by(Gender) %>%
+  summarise(across(Total, statystyki)) %>%
+  unnest(cols = c(Total))
+```
+
+# Generowanie statystyk 'gross income' wg płci
+
+```{r statystyki_gross_income_wg_gender}
+statystyki_income <- data %>%
+  group_by(Gender) %>%
+  summarise(across(gross.income, statystyki)) %>%
+  unnest(cols = c(gross.income))
+```
+
+#Generowanie statystyk dla 'Rating' wg typu klienta
+
+``` {r statystyki_rating_wg_customer_type}
+statystyki_rating <- data %>%
+  group_by(Customer.type) %>%
+  summarise(across(Rating, statystyki)) %>%
+  unnest(cols = c(Rating))
+```
+
+#Generowanie statystyk dla 'Unit price' wg kategorii produktów
+
+```{r statystyki_unit_price_wg_product_line}
+statystyki_unit_price <- data %>%
+  group_by(Product.line) %>%
+  summarise(across(Unit.price, statystyki)) %>%
+  unnest(cols = c(Unit.price))
+```
+
+##Przekształcanie do formatu tabeli 
+ 
+```{r przeksztalcanie_tabele}
+tabela_total <- statystyki_total %>%
+  pivot_longer(cols = -Gender, names_to = "Statystyka", values_to = "Wartość") %>%
+  pivot_wider(names_from = Gender, values_from = Wartość)
+
+tabela_income <- statystyki_income %>%
+  pivot_longer(cols = -Gender, names_to = "Statystyka", values_to = "Wartość") %>%
+  pivot_wider(names_from = Gender, values_from = Wartość)
+
+tabela_rating <- statystyki_rating %>%
+  pivot_longer(cols = -Customer.type, names_to = "Statystyka", values_to = "Wartość") %>%
+  pivot_wider(names_from = Customer.type, values_from = Wartość)
+
+tabela_unit_price <- statystyki_unit_price %>%
+  pivot_longer(cols = -Product.line, names_to = "Statystyka", values_to = "Wartość") %>%
+  pivot_wider(names_from = Product.line, values_from = Wartość)
+```
+
+##Wyświetlanie tabeli
+```{r tabele}
+# Wyświetlenie tabel
+knitr::kable(tabela_total,
+             digits = 2,
+             align = "lcc",
+             caption = "Tabela 1. Statystyki dla 'Total' wg płci.",
+             col.names = c("Statystyka", "Kobiety", "Mężczyźni"))
+
+knitr::kable(tabela_income,
+             digits = 2,
+             align = "lcc",
+             caption = "Tabela 2. Statystyki dla 'Gross Income' wg płci.",
+             col.names = c("Statystyka", "Kobiety", "Mężczyźni"))
+
+knitr::kable(tabela_rating,
+             digits = 2,
+             align = "lcc",
+             caption = "Tabela 3. Statystyki dla 'Rating' wg typu klienta.",
+             col.names = c("Statystyka", "Normal", "Member"))
+
+knitr::kable(tabela_unit_price,
+             digits = 2,
+             align = "lcc",
+             caption = "Tabela 4. Statystyki dla 'Unit Price' wg kategorii produktów.",
+             col.names = c("Statystyka", unique(data$Product.line)))
+```
+
+## Wykresy
+
+```{r porownanie_total_branch}
+# Porównanie Total wg gałęzi
+ggplot(data, aes(x = Branch, y = Total, fill = Branch)) +
+  geom_boxplot() +
+  labs(title = "Porównanie 'Total' wg gałęzi", x = "Gałęzie", y = "Total")
+```
+
+```{r rozklad_gross_income_customer_type}
+ggplot(data, aes(x = gross.income, fill = Customer.type)) +
+  geom_histogram(bins = 20, alpha = 0.7, position = "identity") +
+  labs(title = "Rozkład 'Gross Income' wg typu klienta", x = "Gross Income", y = "Liczba transakcji")
+```
+
+```{r rozklad_rating_gender}
+ggplot(data, aes(x = Rating, fill = Gender)) +
+  geom_density(alpha = 0.5) +
+  labs(title = "Rozkład ocen wg płci", x = "Ocena", y = "Gęstość")
+```
+
+```{r porownanie_gross_income_gender}
+ggplot(data, aes(x = Gender, y = gross.income, fill = Gender)) +
+  geom_boxplot() +
+  labs(title = "Gross Income wg płci", x = "Płeć", y = "Gross Income")
+```
+
+```{r porownanie_customer_type_total}
+ggplot(data, aes(x = Customer.type, y = Total, fill = Customer.type)) +
+  geom_boxplot() +
+  labs(title = "Total wg typu klienta", x = "Typ klienta", y = "Total")
+```
+
+```{r porownanie_rating_branch}
+ggplot(data, aes(x = Branch, y = Rating, fill = Branch)) +
+  geom_boxplot() +
+  labs(title = "Porównanie 'Rating' wg gałęzi", x = "Gałęzie", y = "Rating")
+```
+
+```{r porownanie_gross_income_product_line}
+ggplot(data, aes(x = Product.line, y = gross.income, fill = Product.line)) +
+  geom_boxplot() +
+  labs(title = "Porównanie 'Gross Income' wg kategorii produktów", x = "Kategoria produktu", y = "Gross Income") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+``` 
