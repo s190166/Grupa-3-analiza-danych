@@ -73,7 +73,7 @@ NA_cor2 <- cor_mat(data_cor)
 
 ## Macierz korelacji braków
 ggcorrplot(NA_cor2)
-  
+
 
 # Walidacja danych
 ## Dodawanie zmiennych pomocniczych
