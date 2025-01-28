@@ -40,21 +40,21 @@ plot_male <- ggplot(
 library(gridExtra)
 grid.arrange(plot_female, plot_male, ncol = 2)
 
-# Tworzenie histogramu z podziałem na miasta
+# Oddzielne histogramy dla każdego miasta
 ggplot(data, aes(x = Rating)) +
-  geom_histogram(
-    binwidth = 0.5,  # Szerokość binów
-    fill = "blue",   # Kolor wypełnienia
-    color = "black"  # Kolor obramowania
-  ) +
-  facet_wrap(~ City) +  # Podział na miasta
+  geom_histogram(bins = 30, fill = "#69b3a2", color = "black", alpha = 0.8) +
+  facet_wrap(~ City, scales = "free_y") +  # Oddzielne panele dla każdego miasta
   labs(
-    title = "Rozkład ocen klientów w różnych miastach",
-    x = "Ocena",
-    y = "Liczba klientów"
+    title = "Rozkład ocen (Rating) w zależności od miasta",
+    x = "Ocena (Rating)",
+    y = "Liczba obserwacji"
   ) +
-  theme_minimal()  # Estetyczny motyw
-
+  theme_minimal() +
+  theme(
+    strip.text = element_text(size = 12, face = "bold"),  # Wyraźne etykiety miast
+    axis.text = element_text(size = 10),
+    axis.title = element_text(size = 12)
+  )
 
 # Tworzenie wykresu słópkowego 
 # Obliczanie średniej sprzedaży dla każdej linii produktów

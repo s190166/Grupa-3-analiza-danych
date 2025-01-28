@@ -10,7 +10,6 @@ date: "2025-01-11"
 
 Poniższy kod uzupełnia brakujące wartości w kolumnach na podstawie zależności i imputacji. Kolumna `City` została uzupełniona na podstawie jednoznacznej relacji z kolumną `Branch`. Braki w kolumnie `gross income` zastąpiono wartościami z kolumny `Tax 5%`, ponieważ dane te były tożsame. Braki w kolumnie `Rating` uzupełniono za pomocą imputacji z pakietu `mice`, wykorzystując metodę dopasowania predyktywnego (`pmm`).
 
-
 ```{r setup, include=FALSE}
 # Instalacja i załadowanie pakietów (jeśli nie są zainstalowane)
 if (!require("dplyr")) install.packages("dplyr")
@@ -118,7 +117,6 @@ Obecność takich wartości odstających może mieć istotny wpływ na wyniki an
 
 Działanie to pozwala na bardziej reprezentatywną ocenę danych, co może mieć kluczowe znaczenie w kontekście analizy zachowań klientów, segmentacji rynku lub przewidywania przyszłych trendów sprzedażowych.
 
-
 ```{r setup, include=FALSE}
 # Wybór kolumn numerycznych
 numeric_columns <- c("Unit.price", "Total", "Quantity", "Rating")
@@ -179,3 +177,167 @@ print(comparison)
 Zastąpienie wartości odstających w danych pozwala na uzyskanie bardziej reprezentatywnych wyników, eliminując wpływ skrajnych wartości, które mogą zniekształcać analizy. Dzięki temu modelowanie i wnioskowanie staje się bardziej precyzyjne, a interpretacja danych jest łatwiejsza i bardziej wiarygodna. Takie podejście pomaga lepiej uchwycić rzeczywiste zależności w analizowanej próbie.
 
 ### 4. Wykresy
+
+Wykres kołowy Na wykresie kołowym prezentuje preferencje metody płatności wezględu na płeć. Mężni wolą płacić karta debetową, kobiety preferują płatności gotówką.
+
+```{r setup, include=FALSE }
+# Wczytanie bibliotek
+library(ggplot2)
+library(dplyr)
+
+# Wczytanie danych z pliku CSV
+data <- read.csv("supermarket_filled.csv")
+
+# Podział danych według płci i metody płatności
+gender_payment_counts <- data %>%
+  group_by(Gender, Payment) %>%
+  summarise(Count = n()) %>%
+  mutate(Percentage = round((Count / sum(Count)) * 100, 1)) %>%
+  ungroup()
+
+# Tworzenie wykresu kołowego dla kobiet
+plot_female <- ggplot(
+  gender_payment_counts %>% filter(Gender == "Female"),
+  aes(x = "", y = Percentage, fill = Payment)
+) +
+  geom_bar(stat = "identity", width = 1) +
+  coord_polar("y", start = 0) +
+  theme_void() +
+  labs(title = "Metody płatności kobiet") +
+  geom_text(aes(label = paste0(Percentage, "%")), position = position_stack(vjust = 0.5)) +
+  scale_fill_brewer(palette = "Set3")
+
+# Tworzenie wykresu kołowego dla mężczyzn
+plot_male <- ggplot(
+  gender_payment_counts %>% filter(Gender == "Male"),
+  aes(x = "", y = Percentage, fill = Payment)
+) +
+  geom_bar(stat = "identity", width = 1) +
+  coord_polar("y", start = 0) +
+  theme_void() +
+  labs(title = "Metody płatności mężczyzn") +
+  geom_text(aes(label = paste0(Percentage, "%")), position = position_stack(vjust = 0.5)) +
+  scale_fill_brewer(palette = "Set3")
+
+# Wyświetlenie wykresów obok siebie
+library(gridExtra)
+grid.arrange(plot_female, plot_male, ncol = 2)
+```
+
+2.  Wykres Histogram i pudełkowy
+Histogram przestawia rozkłąd ocean w poszegółnych miast, na wykresie pudełkowym możemy lepiej zobacz jak prezentuje średnia. 
+
+```{r setup, inlude=FALSE}
+# Wyświetlenie wykresów obok siebie
+library(gridExtra)
+grid.arrange(plot_female, plot_male, ncol = 2)
+
+# Oddzielne histogramy dla każdego miasta
+ggplot(data, aes(x = Rating)) +
+  geom_histogram(bins = 30, fill = "#69b3a2", color = "black", alpha = 0.8) +
+  facet_wrap(~ City, scales = "free_y") +  # Oddzielne panele dla każdego miasta
+  labs(
+    title = "Rozkład ocen (Rating) w zależności od miasta",
+    x = "Ocena (Rating)",
+    y = "Liczba obserwacji"
+  ) +
+  theme_minimal() +
+  theme(
+    strip.text = element_text(size = 12, face = "bold"),  # Wyraźne etykiety miast
+    axis.text = element_text(size = 10),
+    axis.title = element_text(size = 12)
+  )
+# Rozkład dla oceny 
+ggplot(data, aes(x = City, y = Rating, fill = City)) +
+  geom_boxplot(alpha = 0.8) +
+  labs(
+    title = "Porównanie ocen (Rating) w zależności od miasta",
+    x = "Miasto",
+    y = "Ocena (Rating)",
+    fill = "Miasto"
+  ) +
+  theme_minimal() +
+  scale_fill_brewer(palette = "Pastel1")
+```
+
+3.  Wykres Słupkowy
+
+```{r setup, inlude=FALSE}
+# Tworzenie wykresu słópkowego 
+# Obliczanie średniej sprzedaży dla każdej linii produktów
+average_sales <- aggregate(Total ~ Product.line, data = data, mean)
+
+# Zwiększenie marginesów dla większej przestrzeni na etykiety
+par(mar = c(8, 4, 4, 2) + 0.1)
+
+# Tworzenie wykresu słupkowego z bardziej czytelnymi etykietami
+barplot(
+  average_sales$Total, 
+  names.arg = average_sales$Product.line, 
+  col = "lightblue",  # Kolor słupków
+  main = "Średnia sprzedaż według linii produktów", 
+  xlab = "",          # Usuń opis osi X, aby nie dublować etykiet
+  ylab = "Średnia sprzedaż",
+  las = 2,            # Pionowe etykiety osi X
+  cex.names = 0.6     # Zmniejszenie rozmiaru tekstu etykiet
+)
+
+# Dodanie opisu osi X poniżej wykresu
+mtext("Linia produktów", side = 1, line = 7, cex = 1.2)
+```
+
+4.  Wykres heatmapa
+
+```{r setup, inlude=FALSE}
+library(dplyr)
+
+# Agregowanie danych
+heatmap_data <- data %>%
+  group_by(City, Gender) %>%
+  summarise(Average_Rating = mean(Rating, na.rm = TRUE)) %>%
+  ungroup()
+
+# Tworzenie wykresu
+ggplot(heatmap_data, aes(x = Gender, y = City, fill = Average_Rating)) +
+  geom_tile(color = "white") +
+  labs(
+    title = "Średnie oceny (Rating) w zależności od miasta i płci",
+    x = "Płeć",
+    y = "Miasto",
+    fill = "Średnia ocena"
+  ) +
+  theme_minimal() +
+  scale_fill_gradient(low = "lightblue", high = "darkblue")
+
+```
+
+5.  Wykres linowy
+
+```{r setup, inlude=FALSE}
+# Tworzenie wykresu trendów 
+# Konwersja kolumny 'Date' na format daty
+data$Date <- as.Date(data$Date, format = "%m/%d/%Y")
+
+# Grupowanie danych według daty i obliczanie całkowitej sprzedaży
+daily_sales <- aggregate(Total ~ Date, data = data, sum)
+
+# Tworzenie wykresu liniowego
+plot(
+  daily_sales$Date, 
+  daily_sales$Total, 
+  type = "l",             # Typ wykresu: linia
+  col = "blue",           # Kolor linii
+  lwd = 2,                # Grubość linii
+  main = "Sprzedaż w czasie", 
+  xlab = "Data", 
+  ylab = "Całkowita sprzedaż"
+)
+
+# Dodanie punktów na wykresie dla lepszej widoczności
+points(
+  daily_sales$Date, 
+  daily_sales$Total, 
+  col = "black",            # Kolor punktów
+  pch = 16                # Typ punktów: kropki
+)
+```
