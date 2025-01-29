@@ -1,0 +1,347 @@
+---
+title: "Michał Książek"
+output: html_document
+date: "2025-01-29"
+---
+
+### 2. Czyszczenie danych z NA
+
+Poniższy kod uzupełnia brakujące wartości w kolumnach na podstawie zależności i imputacji. Kolumna `City` została uzupełniona na podstawie jednoznacznej relacji z kolumną `Branch`. Braki w kolumnie `gross income` zastąpiono wartościami z kolumny `Tax 5%`, ponieważ dane te były tożsame. Braki w kolumnie `Rating` uzupełniono za pomocą imputacji z pakietu `mice`, wykorzystując metodę dopasowania predyktywnego (`pmm`).
+
+```{r setup, include=FALSE}
+# Instalacja i załadowanie pakietów (jeśli nie są zainstalowane)
+if (!require("dplyr")) install.packages("dplyr")
+if (!require("mice")) install.packages("mice")
+library(dplyr)
+library(mice)
+
+# Wczytaj dane
+data <- supermarket
+
+# Zmapuj zależność między Branch a City
+branch_to_city <- data %>%
+  filter(!is.na(City)) %>%
+  distinct(Branch, City) %>%
+  group_by(Branch) %>%
+  summarize(City = first(City))
+
+# Połącz dane, aby uzupełnić brakujące wartości
+data <- data %>%
+  left_join(branch_to_city, by = "Branch", suffix = c("", ".y")) %>%
+  mutate(City = ifelse(is.na(City), City.y, City)) %>%
+  select(-City.y)
+
+# Sprawdź brakujące wartości w kolumnie City
+sum(is.na(data$City))
+
+# Zastąp wartości NA w 16 kolumnie wartościami z 9 kolumny
+data <- data %>%
+  mutate(`gross income` = ifelse(is.na(`gross income`), data[[9]], `gross income`))
+
+# Sprawdź brakujące wartości w kolumnie 'gross income'
+sum(is.na(data$`gross income`))
+
+# Uzupełnianie brakujących wartości w całym zbiorze danych przy użyciu pakietu mice
+# (upewnij się, że dane wejściowe nie zawierają nienumerowalnych kolumn)
+imputed_data <- mice(data, m = 1, method = "pmm", maxit = 50, seed = 123)
+
+# Wybór uzupełnionego zestawu danych
+data <- complete(imputed_data, 1)
+
+# Sprawdzenie liczby brakujących wartości w całym zbiorze danych
+sum(is.na(data))
+
+# Eksport danych do pliku CSV
+write.csv(data, "supermarket_filled.csv", row.names = FALSE)
+
+
+```
+
+## 3. Wartości Odstające
+
+Wartości odstające to obserwacje znacząco odbiegające od reszty danych, które mogą zniekształcać wyniki analiz statystycznych. Aby zminimalizować ich wpływ, przeprowadzono analizę zmiennych `Unit.price`, `Total`, `Quantity` i `Rating`.
+
+```{r setup, include=FALSE}
+# Wczytanie bibliotek
+library(ggplot2)
+library(gridExtra)
+
+# Wczytanie danych z pliku CSV
+data <- read.csv("supermarket_filled.csv")
+
+# Rysowanie boxplotów dla wybranych zmiennych
+b1 <- ggplot(data, aes(y = Unit.price)) +
+  geom_boxplot() +
+  labs(title = "Boxplot: Unit Price") +
+  theme_minimal()
+
+b2 <- ggplot(data, aes(y = Total)) +
+  geom_boxplot() +
+  labs(title = "Boxplot: Total") +
+  theme_minimal()
+
+# Rysowanie histogramów dla wybranych zmiennych
+h1 <- ggplot(data, aes(x = Unit.price)) +
+  geom_histogram(bins = 30, fill = "#0c4c8a") +
+  labs(title = "Histogram: Unit Price", x = "Unit Price", y = "Frequency") +
+  theme_minimal()
+
+h2 <- ggplot(data, aes(x = Total)) +
+  geom_histogram(bins = 30, fill = "#0c4c8a") +
+  labs(title = "Histogram: Total", x = "Total", y = "Frequency") +
+  theme_minimal()
+
+# Wyświetlenie wykresów w siatce 2x2
+grid.arrange(b1, b2, h1, h2, nrow = 2)
+
+replace_outliers_with_median <- function(column) {
+  Q1 <- quantile(column, 0.25, na.rm = TRUE)
+  Q3 <- quantile(column, 0.75, na.rm = TRUE)
+  IQR <- Q3 - Q1
+  lower_bound <- Q1 - 1.5 * IQR
+  upper_bound <- Q3 + 1.5 * IQR
+  column[column < lower_bound | column > upper_bound] <- median(column, na.rm = TRUE)
+  return(column)
+}
+```
+
+W przypadku analizowanych zmiennych „Unit Price” i „Total” zaobserwowano obecność wartości odstających.
+
+Dla zmiennej „Unit Price” mediana wynosi około 55 dolarów, natomiast wartości maksymalne przekraczają 100 dolarów, co wskazuje na obecność wyjątkowo wysokich wartości, które znacznie przewyższają typowy zakres cen jednostkowych produktów.
+
+Dla zmiennej „Total” mediana oscyluje w granicach 250 dolarów, podczas gdy wartość maksymalna wynosi ponad 1000 dolarów. Tak duże różnice sugerują, że pewne transakcje znacząco odbiegają od typowego poziomu całkowitych kwot zakupów.
+
+Obecność takich wartości odstających może mieć istotny wpływ na wyniki analiz statystycznych, szczególnie w przypadku miar wrażliwych na ekstremalne wartości, takich jak średnia arytmetyczna. Aby zminimalizować ich wpływ i poprawić jakość dalszej analizy danych, wartości odstające zostały zastąpione medianą zmiennych.
+
+Działanie to pozwala na bardziej reprezentatywną ocenę danych, co może mieć kluczowe znaczenie w kontekście analizy zachowań klientów, segmentacji rynku lub przewidywania przyszłych trendów sprzedażowych.
+
+```{r setup, include=FALSE}
+# Wybór kolumn numerycznych
+numeric_columns <- c("Unit.price", "Total", "Quantity", "Rating")
+
+# Funkcja do wykrywania wartości odstających
+detect_outliers <- function(column) {
+  Q1 <- quantile(column, 0.25, na.rm = TRUE)
+  Q3 <- quantile(column, 0.75, na.rm = TRUE)
+  IQR <- Q3 - Q1
+  lower_bound <- Q1 - 1.5 * IQR
+  upper_bound <- Q3 + 1.5 * IQR
+  which(column < lower_bound | column > upper_bound)
+}
+
+# Analiza wartości odstających przed zastąpieniem
+outliers_before <- lapply(data[numeric_columns], detect_outliers)
+```
+
+Wyświetlanie wartości obstających
+
+```{r setup, include=FALSE}
+# Wyświetlanie wartości odstających
+print(outliers_before$Total)
+```
+
+Wartości obstające zostały zastąpione stosująć medianę.
+
+```{r setup, include=FALSE}
+# Zastąpienie wartości odstających medianą
+replace_outliers_with_median <- function(column) {
+  Q1 <- quantile(column, 0.25, na.rm = TRUE)
+  Q3 <- quantile(column, 0.75, na.rm = TRUE)
+  IQR <- Q3 - Q1
+  lower_bound <- Q1 - 1.5 * IQR
+  upper_bound <- Q3 + 1.5 * IQR
+  column[column < lower_bound | column > upper_bound] <- median(column, na.rm = TRUE)
+  return(column)
+}
+
+data[numeric_columns] <- lapply(data[numeric_columns], replace_outliers_with_median)
+
+# Analiza wartości odstających po zastąpieniu
+outliers_after <- lapply(data[numeric_columns], detect_outliers)
+
+# Wyświetlenie liczby wartości odstających po zastąpieniu
+cat("\nLiczba wartości odstających po zastąpieniu:\n")
+sapply(outliers_after, length)
+
+# Porównanie wartości odstających przed i po
+comparison <- data.frame(
+  Variable = numeric_columns,
+  Outliers_Before = sapply(outliers_before, length),
+  Outliers_After = sapply(outliers_after, length)
+)
+print(comparison)
+```
+
+Zastąpienie wartości odstających w danych pozwala na uzyskanie bardziej reprezentatywnych wyników, eliminując wpływ skrajnych wartości, które mogą zniekształcać analizy. Dzięki temu modelowanie i wnioskowanie staje się bardziej precyzyjne, a interpretacja danych jest łatwiejsza i bardziej wiarygodna. Takie podejście pomaga lepiej uchwycić rzeczywiste zależności w analizowanej próbie.
+
+### 4. Wykresy
+
+Wykres kołowy Na wykresie kołowym prezentuje preferencje metody płatności wezględu na płeć. Mężni wolą płacić karta debetową, kobiety preferują płatności gotówką.
+
+```{r setup, include=FALSE }
+# Wczytanie bibliotek
+library(ggplot2)
+library(dplyr)
+
+# Wczytanie danych z pliku CSV
+data <- read.csv("supermarket_filled.csv")
+
+# Podział danych według płci i metody płatności
+gender_payment_counts <- data %>%
+  group_by(Gender, Payment) %>%
+  summarise(Count = n()) %>%
+  mutate(Percentage = round((Count / sum(Count)) * 100, 1)) %>%
+  ungroup()
+
+# Tworzenie wykresu kołowego dla kobiet
+plot_female <- ggplot(
+  gender_payment_counts %>% filter(Gender == "Female"),
+  aes(x = "", y = Percentage, fill = Payment)
+) +
+  geom_bar(stat = "identity", width = 1) +
+  coord_polar("y", start = 0) +
+  theme_void() +
+  labs(title = "Metody płatności kobiet") +
+  geom_text(aes(label = paste0(Percentage, "%")), position = position_stack(vjust = 0.5)) +
+  scale_fill_brewer(palette = "Set3")
+
+# Tworzenie wykresu kołowego dla mężczyzn
+plot_male <- ggplot(
+  gender_payment_counts %>% filter(Gender == "Male"),
+  aes(x = "", y = Percentage, fill = Payment)
+) +
+  geom_bar(stat = "identity", width = 1) +
+  coord_polar("y", start = 0) +
+  theme_void() +
+  labs(title = "Metody płatności mężczyzn") +
+  geom_text(aes(label = paste0(Percentage, "%")), position = position_stack(vjust = 0.5)) +
+  scale_fill_brewer(palette = "Set3")
+
+# Wyświetlenie wykresów obok siebie
+library(gridExtra)
+grid.arrange(plot_female, plot_male, ncol = 2)
+```
+
+2.  Wykres Histogram i pudełkowy \
+    Histogram przedstawia rozkład ocen w poszczególnych miastach, pokazując, jak często występują określone wartości ocen. Dzięki niemu możemy łatwo zauważyć ogólny kształt rozkładu, jego skośność oraz ewentualne wartości odstające.
+
+    Z kolei wykres pudełkowy (boxplot) pozwala lepiej zobaczyć rozkład danych pod kątem ich mediany, kwartylów oraz wartości odstających. Środkowa linia w pudełku reprezentuje medianę ocen, a granice pudełka pokazują zakres między pierwszym a trzecim kwartylem. Wąsy wskazują wartości minimalne i maksymalne, pomijając odstające obserwacje, które są zaznaczone jako osobne punkty. Wykres pudełkowy ułatwia szybkie porównanie mediany ocen między różnymi miastami oraz identyfikację ewentualnych różnic w rozproszeniu danych.
+
+```{r setup, inlude=FALSE}
+# Wyświetlenie wykresów obok siebie
+library(gridExtra)
+grid.arrange(plot_female, plot_male, ncol = 2)
+
+# Oddzielne histogramy dla każdego miasta
+ggplot(data, aes(x = Rating)) +
+  geom_histogram(bins = 30, fill = "#69b3a2", color = "black", alpha = 0.8) +
+  facet_wrap(~ City, scales = "free_y") +  # Oddzielne panele dla każdego miasta
+  labs(
+    title = "Rozkład ocen (Rating) w zależności od miasta",
+    x = "Ocena (Rating)",
+    y = "Liczba obserwacji"
+  ) +
+  theme_minimal() +
+  theme(
+    strip.text = element_text(size = 12, face = "bold"),  # Wyraźne etykiety miast
+    axis.text = element_text(size = 10),
+    axis.title = element_text(size = 12)
+  )
+# Rozkład dla oceny 
+ggplot(data, aes(x = City, y = Rating, fill = City)) +
+  geom_boxplot(alpha = 0.8) +
+  labs(
+    title = "Porównanie ocen (Rating) w zależności od miasta",
+    x = "Miasto",
+    y = "Ocena (Rating)",
+    fill = "Miasto"
+  ) +
+  theme_minimal() +
+  scale_fill_brewer(palette = "Pastel1")
+```
+
+3.  Wykres słópkowy\
+    Wykres słupkowy przedstawia średnią sprzedaż dla każdej linii produktów, co pozwala na szybkie porównanie wyników poszczególnych kategorii. Słupki mają kolor niebieski, a ich wysokość odpowiada wartości średniej sprzedaży w danej linii produktów.
+
+```{r setup, inlude=FALSE}
+# Tworzenie wykresu słópkowego 
+# Obliczanie średniej sprzedaży dla każdej linii produktów
+average_sales <- aggregate(Total ~ Product.line, data = data, mean)
+
+# Zwiększenie marginesów dla większej przestrzeni na etykiety
+par(mar = c(8, 4, 4, 2) + 0.1)
+
+# Tworzenie wykresu słupkowego z bardziej czytelnymi etykietami
+barplot(
+  average_sales$Total, 
+  names.arg = average_sales$Product.line, 
+  col = "lightblue",  # Kolor słupków
+  main = "Średnia sprzedaż według linii produktów", 
+  xlab = "",          # Usuń opis osi X, aby nie dublować etykiet
+  ylab = "Średnia sprzedaż",
+  las = 2,            # Pionowe etykiety osi X
+  cex.names = 0.6     # Zmniejszenie rozmiaru tekstu etykiet
+)
+
+# Dodanie opisu osi X poniżej wykresu
+mtext("Linia produktów", side = 1, line = 7, cex = 1.2)
+```
+
+4.  Wykres heatmapa\
+    Wykres typu heatmapa przedstawia średnie oceny (Rating) w zależności od miasta i płci. Kolor kafelków odzwierciedla wartość średniej oceny – jaśniejsze odcienie oznaczają niższe wartości, a ciemniejsze wyższe
+
+```{r setup, inlude=FALSE}
+library(dplyr)
+
+# Agregowanie danych
+heatmap_data <- data %>%
+  group_by(City, Gender) %>%
+  summarise(Average_Rating = mean(Rating, na.rm = TRUE)) %>%
+  ungroup()
+
+# Tworzenie wykresu
+ggplot(heatmap_data, aes(x = Gender, y = City, fill = Average_Rating)) +
+  geom_tile(color = "white") +
+  labs(
+    title = "Średnie oceny (Rating) w zależności od miasta i płci",
+    x = "Płeć",
+    y = "Miasto",
+    fill = "Średnia ocena"
+  ) +
+  theme_minimal() +
+  scale_fill_gradient(low = "lightblue", high = "darkblue")
+
+```
+
+5.  Wykres linowy
+
+    Wykres liniowy przedstawia trend sprzedaży w czasie, umożliwiając obserwację zmian w całkowitej sprzedaży na przestrzeni dni. Linia łączy punkty reprezentujące dzienne sumy sprzedaży, co pozwala na łatwe dostrzeżenie wzorców, takich jak okresowe wzrosty i spadki.
+
+```{r setup, inlude=FALSE}
+# Tworzenie wykresu trendów 
+# Konwersja kolumny 'Date' na format daty
+data$Date <- as.Date(data$Date, format = "%m/%d/%Y")
+
+# Grupowanie danych według daty i obliczanie całkowitej sprzedaży
+daily_sales <- aggregate(Total ~ Date, data = data, sum)
+
+# Tworzenie wykresu liniowego
+plot(
+  daily_sales$Date, 
+  daily_sales$Total, 
+  type = "l",             # Typ wykresu: linia
+  col = "blue",           # Kolor linii
+  lwd = 2,                # Grubość linii
+  main = "Sprzedaż w czasie", 
+  xlab = "Data", 
+  ylab = "Całkowita sprzedaż"
+)
+
+# Dodanie punktów na wykresie dla lepszej widoczności
+points(
+  daily_sales$Date, 
+  daily_sales$Total, 
+  col = "black",            # Kolor punktów
+  pch = 16                # Typ punktów: kropki
+)
+```
