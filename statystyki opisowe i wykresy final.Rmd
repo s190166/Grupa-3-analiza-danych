@@ -1,0 +1,310 @@
+---
+title: "statystyki opisowe"
+date: "2025-01-26"
+output:  rmdformats::readthedown
+---
+<style>
+    pre, code  {
+    font-family: 'Arial', monospace;
+    font-size: 14px;
+  }
+  .output {
+    font-family: 'Arial', monospace;
+    font-size: 14px;
+}
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(tidyr)
+library(knitr)
+library(moments)
+library(ggplot2)
+```
+
+```{r wczytanie_danych}
+data <- read.csv("supermarket_filled.csv")
+```
+
+
+# Statystyki opisowe
+
+```{r Statystyki_opisowe}
+statystyki <- function(x) {
+  data.frame(
+    "Min" = min(x, na.rm = TRUE),
+    "Max" = max(x, na.rm = TRUE),
+    "Kwartyl dolny" = quantile(x, 0.25, na.rm = TRUE),
+    "Mediana" = round(median(x, na.rm = TRUE), 2),
+    "Kwartyl górny" = quantile(x, 0.75, na.rm = TRUE),
+    "Średnia" = round(mean(x, na.rm = TRUE), 2),
+    "Odch. std." = round(sd(x, na.rm = TRUE), 2),
+    "IQR" = round(IQR(x, na.rm = TRUE), 2),
+    "Odchylenie ćwiartkowe" = round(IQR(x, na.rm = TRUE) / 2, 2),
+    "Odch. std. w %" = round((sd(x, na.rm = TRUE) / mean(x, na.rm = TRUE)) * 100, 2),
+    "Odch. ćwiartkowe w %" = round((IQR(x, na.rm = TRUE) / median(x, na.rm = TRUE)) * 100, 2),
+    "Skośność" = round(skewness(x, na.rm = TRUE), 2),
+    "Kurtoza" = round(kurtosis(x, na.rm = TRUE), 2)
+  )
+}
+```
+
+## Statystyki dla 'Total'wg płci
+<pre>
+  Tabela przedstawia statystyki zmiennej Total dla kobiet i mężczyzn. 
+  Wartości minimalne i maksymalne są podobne w obu grupach, co sugeruje zbliżony zakres danych.
+  Mediana i kwartyle pokazują, że kobiety osiągają nieco wyższe wartości Total niż mężczyźni
+  (mediana: 272,58 vs. 244,23). Podobny trend widać w średniej, co oznacza, że ogólnie wartości
+  Total są wyższe dla kobiet.
+
+  Zmienność wyników w obu grupach jest porównywalna – wskazują na to zbliżone wartości
+  odchylenia standardowego i rozstępu międzykwartylowego (IQR). 
+  Skośność dodatnia (0,83 dla kobiet, 0,96 dla mężczyzn) oznacza, że rozkłady są asymetryczne w
+  prawo – większość wartości jest niższa, ale pojawiają się pojedyncze wysokie obserwacje.
+  Kurtoza (2,81 dla kobiet, 3,04 dla mężczyzn) sugeruje, że rozkłady mają umiarkowanie
+  grubsze ogony niż rozkład normalny.
+</pre>
+
+```{r statystyki_total_income_wg_gender}
+statystyki_total <- data %>%
+  group_by(Gender) %>%
+  summarise(across(Total, statystyki)) %>%
+  unnest(cols = c(Total))
+```
+
+## Statystyki dla 'gross income' wg płci
+
+<pre>
+  Tabela przedstawia statystyki dotyczące Gross Income w podziale na płeć.
+  Mediana oraz kwartyle pokazują, że kobiety osiągają nieco wyższe wartości Gross Income niż
+  mężczyźni (mediana: 13,57 vs. 11,22), co znajduje odzwierciedlenie również w średniej (16,03
+  vs. 14,83).
+
+  Zmienność w obu grupach jest porównywalna – świadczą o tym podobne wartości odchylenia
+  standardowego oraz rozstępu międzykwartylowego (IQR). 
+  Dodatnia skośność (0,83 dla kobiet, 0,96 dla mężczyzn) sugeruje, że w obu przypadkach rozkład
+  jest asymetryczny w prawo, czyli większość wartości jest stosunkowo niska, ale pojawiają się
+  pojedyncze wysokie obserwacje. 
+  Kurtoza (2,90 dla kobiet, 3,03 dla mężczyzn) wskazuje, że rozkład ma nieco grubsze ogony niż
+  rozkład normalny, co oznacza większą liczbę wartości skrajnych.
+</pre>
+
+```{r statystyki_gross_income_wg_gender}
+statystyki_income <- data %>%
+  group_by(Gender) %>%
+  summarise(across(gross.income, statystyki)) %>%
+  unnest(cols = c(gross.income))
+```
+
+## Statystyki dla 'Rating' wg typu klienta
+<pre>
+  Tabela przedstawia statystyki dotyczące ocen (Rating) wystawianych przez klientów w podziale
+  na typ (Normal i Member). 
+  Zakres ocen w obu grupach jest identyczny (od 4,00 do 10,00). Mediana i kwartyle wskazują, że
+  członkowie programu lojalnościowego (Member) wystawiają nieco wyższe oceny niż klienci zwykli
+  (Normal), choć różnice są niewielkie (mediana: 7,10 vs. 7,00). Średnia również jest
+  minimalnie wyższa dla członków (7,05 vs. 6,97).
+  
+  Rozkłady ocen w obu grupach są bardzo podobne – zarówno odchylenie standardowe, jak i rozstęp
+  międzykwartylowy (IQR) mają zbliżone wartości. Skośność bliska zeru (-0,01 dla Normal, -0,02
+  dla Member) oznacza, że rozkłady są niemal symetryczne. 
+  Kurtoza (1,84 dla Normal, 1,83 dla Member) wskazuje na spłaszczony kształt rozkładu w
+  porównaniu do rozkładu normalnego, co oznacza mniejszą liczbę skrajnych ocen.
+</pre>
+
+``` {r statystyki_rating_wg_customer_type}
+statystyki_rating <- data %>%
+  group_by(Customer.type) %>%
+  summarise(across(Rating, statystyki)) %>%
+  unnest(cols = c(Rating))
+```
+
+## Statystyk dla 'Unit price' wg kategorii produktów
+<pre>
+  Tabela przedstawia statystyki dotyczące Unit Price (ceny jednostkowej) w podziale na
+  kategorie produktów. Wszystkie kategorie mają podobny zakres cen – wartości minimalne wahają
+  się od 10,08 (Sports and travel) do 10,56 (Health and beauty), natomiast maksymalne ceny są
+  bardzo zbliżone i mieszczą się w przedziale 99,73–99,96.
+  Mediana ceny jednostkowej jest najwyższa dla Fashion accessories (58,65) oraz Sports and
+  travel (57,41), a najniższa dla Home and lifestyle (54,00). Średnie wartości są również do
+  siebie zbliżone, ale najwyższą średnią cenę mają Electronic accessories (57,15), a najniższą
+  Sports and travel (54,85) oraz Food and beverages (55,32).
+  Odchylenie standardowe we wszystkich grupach jest bardzo podobne – waha się od 26,21 (Food
+  and beverages) do 26,91 (Fashion accessories), co wskazuje na zbliżoną zmienność cen w każdej
+  kategorii. Rozstęp międzykwartylowy (IQR) również pokazuje, że ceny w poszczególnych
+  kategoriach nie różnią się znacznie pod względem rozproszenia – najwyższy IQR ma Health and
+  beauty (47,92), a najniższy Food and beverages (43,21).
+  Skośność we wszystkich przypadkach jest bliska zeru, co oznacza, że rozkłady cen są
+  symetryczne – nie występuje wyraźne przesunięcie w stronę niższych lub wyższych wartości.
+  Kurtoza we wszystkich kategoriach mieści się w przedziale 1,70–1,85, co oznacza, że rozkłady
+  cen są lekko spłaszczone w porównaniu do rozkładu normalnego. Wskazuje to na mniejszą liczbę
+  wartości skrajnych, czyli rzadziej występujące wyjątkowo niskie lub wysokie ceny.
+</pre>
+
+```{r statystyki_unit_price_wg_product_line}
+statystyki_unit_price <- data %>%
+  group_by(Product.line) %>%
+  summarise(across(Unit.price, statystyki)) %>%
+  unnest(cols = c(Unit.price))
+```
+
+ 
+```{r przeksztalcanie_tabele}
+tabela_total <- statystyki_total %>%
+  pivot_longer(cols = -Gender, names_to = "Statystyka", values_to = "Wartość") %>%
+  pivot_wider(names_from = Gender, values_from = Wartość)
+
+tabela_income <- statystyki_income %>%
+  pivot_longer(cols = -Gender, names_to = "Statystyka", values_to = "Wartość") %>%
+  pivot_wider(names_from = Gender, values_from = Wartość)
+
+tabela_rating <- statystyki_rating %>%
+  pivot_longer(cols = -Customer.type, names_to = "Statystyka", values_to = "Wartość") %>%
+  pivot_wider(names_from = Customer.type, values_from = Wartość)
+
+tabela_unit_price <- statystyki_unit_price %>%
+  pivot_longer(cols = -Product.line, names_to = "Statystyka", values_to = "Wartość") %>%
+  pivot_wider(names_from = Product.line, values_from = Wartość)
+```
+
+```{r tabele}
+# Wyświetlenie tabel
+knitr::kable(tabela_total,
+             digits = 2,
+             align = "lcc",
+             caption = "Tabela 1. Statystyki dla 'Total' wg płci.",
+             col.names = c("Statystyka", "Kobiety", "Mężczyźni"))
+
+knitr::kable(tabela_income,
+             digits = 2,
+             align = "lcc",
+             caption = "Tabela 2. Statystyki dla 'Gross Income' wg płci.",
+             col.names = c("Statystyka", "Kobiety", "Mężczyźni"))
+
+knitr::kable(tabela_rating,
+             digits = 2,
+             align = "lcc",
+             caption = "Tabela 3. Statystyki dla 'Rating' wg typu klienta.",
+             col.names = c("Statystyka", "Normal", "Member"))
+
+knitr::kable(tabela_unit_price,
+             digits = 2,
+             align = "lcc",
+             caption = "Tabela 4. Statystyki dla 'Unit Price' wg kategorii produktów.",
+             col.names = c("Statystyka", unique(data$Product.line)))
+```
+
+# Wykresy
+
+## Porównanie 'Total' i 'Branch'
+<pre>
+  Wykres pudełkowy przedstawia porównanie wartości 'Total' dla trzech gałęzi (A, B, C). Każda
+  gałąź ma podobny rozkład wartości, z medianą na zbliżonym poziomie. Występują wartości
+  odstające (outliers) powyżej 1000. Rozstęp międzykwartylowy (IQR) jest podobny dla wszystkich
+  gałęzi, co sugeruje względnie równomierne rozproszenie danych.
+</pre>
+
+```{r porownanie_total_branch}
+# Porównanie Total wg gałęzi
+ggplot(data, aes(x = Branch, y = Total, fill = Branch)) +
+  geom_boxplot() +
+  labs(title = "Porównanie 'Total' wg gałęzi", x = "Gałęzie", y = "Total")
+```
+
+## Rozkład 'gross income' i 'customer type'
+<pre>
+  Większość transakcji generuje niskie wartości Gross Income (głównie poniżej 10), co widać po
+  wysokich słupkach na początku osi X.
+  Rozkład jest prawostronnie skośny – im wyższy Gross Income, tym rzadsze transakcje.
+  Klienci Normal (turkusowy kolor) mają więcej transakcji o niższych wartościach Gross Income,
+  ale ich rozkład jest zbliżony do członków Member (czerwony kolor).
+</pre>
+
+```{r rozklad_gross_income_customer_type}
+ggplot(data, aes(x = gross.income, fill = Customer.type)) +
+  geom_histogram(bins = 20, alpha = 0.7, position = "identity") +
+  labs(title = "Rozkład 'Gross Income' wg typu klienta", x = "Gross Income", y = "Liczba transakcji")
+```
+
+## Rozkład 'rating' wg płci
+<pre>
+  Wykres przedstawia rozkład ocen w zależności od płci (Female – czerwony, Male – turkusowy).
+  Ogólny rozkład ocen dla obu płci jest podobny, ale są pewne różnice w gęstości.
+  Mężczyźni (turkusowy) mają większą koncentrację ocen wokół 6-7, co oznacza, że częściej
+  wystawiają oceny w tym zakresie.
+  Kobiety (czerwony) mają więcej ocen w skrajnych wartościach – widoczny jest nieco większy
+  udział ocen w okolicach 4-5 oraz 9-10.
+  Ogólnie, różnice nie są duże, ale kobiety częściej wystawiają zarówno bardzo niskie, jak i
+  bardzo wysokie oceny, a mężczyźni częściej oceniają w średnim zakresie.
+</pre>
+
+```{r rozklad_rating_gender}
+ggplot(data, aes(x = Rating, fill = Gender)) +
+  geom_density(alpha = 0.5) +
+  labs(title = "Rozkład ocen wg płci", x = "Ocena", y = "Gęstość")
+```
+
+## Porównanie 'gross income' i płci
+<pre>
+  Wykres przedstawia porównanie dochodów brutto ze względu na płeć. Mediana dochodów kobiet i
+  mężczyzn jest na zbliżonym poziomie, co sugeruje brak istotnych różnic w przeciętnych
+  zarobkach między grupami. Rozkład dochodów w obu przypadkach jest podobny, choć widać kilka
+  wartości odstających, wskazujących na jednostki z wyraźnie wyższymi zarobkami. 
+  Ogólnie dochody obu płci mają porównywalną strukturę.
+</pre>
+```{r porownanie_gross_income_gender}
+ggplot(data, aes(x = Gender, y = gross.income, fill = Gender)) +
+  geom_boxplot() +
+  labs(title = "Gross Income wg płci", x = "Płeć", y = "Gross Income")
+```
+
+## Porównanie 'customer type' i 'total'
+<pre>
+  Wykres przedstawia porównanie całkowitej wartości zakupów w zależności od typu klienta.
+  Mediana wydatków dla członków programu lojalnościowego (Member) i klientów standardowych
+  (Normal) jest na podobnym poziomie, co sugeruje brak istotnych różnic w przeciętnych
+  wartościach zakupów. Rozkład wydatków jest zbliżony dla obu grup, choć występują pojedyncze
+  wartości odstające wskazujące na wyjątkowo wysokie zakupy. 
+  Ogólnie rzecz biorąc, typ klienta nie wydaje się mieć dużego wpływu na poziom wydatków.
+</pre>
+
+```{r porownanie_customer_type_total}
+ggplot(data, aes(x = Customer.type, y = Total, fill = Customer.type)) +
+  geom_boxplot() +
+  labs(title = "Total wg typu klienta", x = "Typ klienta", y = "Total")
+```
+
+## Porównanie 'rating' i 'branch' 
+<pre>
+  Wykres przedstawia porównanie ocen (Rating) dla trzech różnych gałęzi (A, B, C). Mediany ocen
+  we wszystkich gałęziach są zbliżone, co sugeruje, że poziom ocen klientów jest podobny
+  niezależnie od oddziału. Rozkład ocen jest szeroki, co oznacza, że w każdej gałęzi występują
+  zarówno niskie, jak i wysokie oceny. 
+  Ogólnie rzecz biorąc, nie widać znaczących różnic w ocenach między oddziałami.
+</pre>
+
+```{r porownanie_rating_branch}
+ggplot(data, aes(x = Branch, y = Rating, fill = Branch)) +
+  geom_boxplot() +
+  labs(title = "Porównanie 'Rating' wg gałęzi", x = "Gałęzie", y = "Rating")
+```
+
+## Porównanie 'gross income' i 'product line'
+<pre>
+  Wykres przedstawia porównanie dochodu brutto ("Gross Income") w różnych kategoriach
+  produktów. 
+  Większość kategorii produktów ma podobną medianę wartości dochodu brutto, co sugeruje, że
+  przeciętny dochód dla różnych typów produktów jest zbliżony. Szerokość pudełek jest podobna w
+  większości kategorii, co oznacza porównywalną zmienność danych. W każdej kategorii występują
+  wartości odstające, co sugeruje, że w niektórych przypadkach dochód brutto był wyjątkowo
+  wysoki.
+  Ogólnie rzecz biorąc, różnice między kategoriami produktów nie są znaczące, co sugeruje, że
+  żadna z nich nie wyróżnia się wyraźnie pod względem dochodu brutto.
+</pre>
+```{r porownanie_gross_income_product_line}
+ggplot(data, aes(x = Product.line, y = gross.income, fill = Product.line)) +
+  geom_boxplot() +
+  labs(title = "Porównanie 'Gross Income' wg kategorii produktów", x = "Kategoria produktu", y = "Gross Income") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+``` 
