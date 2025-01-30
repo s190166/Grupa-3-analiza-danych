@@ -1,0 +1,336 @@
+---
+title: "Projekt - Analiza Danych"
+author: "Zuzanna Łomża"
+date: "2024-12-05"
+output:  rmdformats::readthedown
+---
+<style>
+    pre, code  {
+    font-family: 'Arial', monospace;
+    font-size: 14px;
+  }
+  .output {
+    font-family: 'Arial', monospace;
+    font-size: 14px;
+}
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+data <- read.csv("supermarket_new.csv")
+library(rmdformats)
+library(naniar)
+library(reshape2)
+library(ggplot2)
+library(rstatix)
+library(ggcorrplot)
+library(mice)
+library(validate)
+library(DT)
+library(lubridate)
+library(ggstatsplot)
+```
+
+## 1. Informacje wstępne
+
+<pre>
+    Zbiór danych poddany analizie dotyczy historycznych sprzedaży supermarketów Biedronka, które zostały
+zarejestrowane w trzech różnych oddziałach przez trzy pierwsze miesiące 2019 roku (1.01.2019-30.03.2019). 
+Zmienne uwzglednione w zbiorze to: 
+  - Invoice.ID: Numer identyfikacyjny faktury sprzedaży wygenerowany komputerowo; 
+  - Branch: Oddział supercentrum A, B i C; 
+  - City: Lokalizacja supercentrów w miastach Naypyitaw, Yangon i Mandalay;
+  - Customer.type: Typ klientów, zarejestrowanych jako "członek" ("Member") dla klientów korzystających 
+    z karty członkowskiej i "normalny" ("Normal") dla klientów nie posaidających karty członkowskiej; 
+  - Gender: Płeć klienta- kobieta ("Female") i mężczyzna ("Male"); 
+  - Product.line: Ogólne grupy kategoryzacji przedmiotów - Akcesoria elektroniczne ("Electronic 
+    accessories"), Akcesoria modowe ("Fashion accessories"), Żywność i napoje ("Food and beverages"), 
+    Zdrowie i uroda ("Health and beauty"), Dom i styl życia ("Home and lifestyle"), Sport i podróże 
+    ("Sports and travel"); 
+  - Unit.price: Cena każdego produktu w $; 
+  - Quantity: Liczba produktów zakupionych przez klienta; 
+  - Tax.5.: Opłata podatkowa w wysokości 5% dla klienta dokonującego zakupu 
+    (iloczyn kosztu sprzedanych towarów i 5% podatku); - Total: Suma kosztu sprzedanych towarów i podatku;
+  - Date: Data zakupu (rekord dostępny od stycznia 2019 r. do marca 2019 r.); 
+  - Time: Czas zakupu (od 10:00 do 21:00); 
+  - Payment: Płatność wykorzystana przez klienta do zakupu (dostępne są 3 metody - gotówka ("Cash"), 
+    karta kredytowa ("Credit card") i portfel elektroniczny ("Ewallet"); 
+  - cogs: Koszt sprzedanych towarów (iloczyn ceny produktu i ilości sprzedanych towarów); 
+  - Gross margin percentage: Procentowa marża brutto; 
+  - Gross income: Dochód brutto (równy 5% opłacie podatkowej od kosztu sprzedanych produktów); 
+  - Rating: Ocena stratyfikacji klientów dotycząca ich ogólnego doświadczenia zakupowego 
+    (w skali od 1 do 10).
+
+    Za zmienne zależne przyjęto "Unit.price" oraz "Rating".
+</pre>
+
+## 2. Analiza danych.
+
+### *2.1. Brakujące obserwacje.*
+
+<pre>
+Zbiór danych zawiera `r n_miss(data)` brakujących wartości.
+</pre>
+
+#### Tabela podsumowująca braki.
+
+```{r Tabela podsumowująca liczbę NA, echo=FALSE}
+datatable(miss_var_summary(data))
+```
+<pre>
+    Powyższa tabela wskazuje rozłożenie brakujących wartości w zbiorze. Największa liczba braków dotyczy kolumn
+"gross.income" oraz "Rating", w których znajdowało się po 150 liczb NA. W kolumnie "City" natomiast, braki 
+stanowiły 10% wszystkich obserwacji dla tej zmiennej.
+</pre>
+
+#### Wizualizacja lokalizacji braków.
+
+```{r Shadow map, echo=FALSE}
+vis_miss(data, sort = TRUE)
+```
+<pre>
+    Wizualizacja prezentująca lokalizację braków w zbiorze skłania ku stwierdzeniu, że pojawiające się liczby NA
+niewspółwystępują, a co za tym idzie - są to braki kompletnie losowe (MCAR). 
+Dodatkowo stanowią one 2,9% wszystkich obserwacji w zbiorze.
+</pre>
+
+#### Współwystępowanie braków.
+
+```{r Wykres UpSet dla współwystępowania NA, echo=FALSE}
+gg_miss_upset(data, 
+              nsets = 3)
+```
+<pre>
+    W celu weryfikacji powyższego sformułowania stworzono wykres UpSet przedstawiający współwystępowanie braków 
+między zmiennmi. 
+    Wynika z niego, że dla zmiennej "gross.income" 116 braków (ok. `r round(116/150*100, 2)`%) występuje niezależnie od pozostałych 
+zmiennych z brakami. Ponadto 20 przypadków NA współwystępuje ze zmeinną "Rating", 13 - z "City" i 1 brak znalazł 
+się w tym samym rekordzie, co pozostałe zmienne posiadające brakujące obserwacje. 
+    Kolumna "Rating" zatem posiada 113 (ok. `r round(113/150*100, 2)`%) braków niezależnych i 16 przypadków braków współwsytępujących
+z kolumną "City". 
+    Zmienna "City" natomiast, poza wskazanymi zależnościami, posiada 70 (`r 70/100*100`%) braków nie występujących 
+równocześnie z innymi rekordami. 
+    Podsumowując, najczęściej braki występują osobno w poszczególnych kolumnach (`r 116+113+70` przypadków NA), ale istnieje 
+pewna liczba przypadków, w których braki te współwystępują w dwóch (`r 20+16+13` przypadków NA) lub trzech kolumnach 
+(1 przypadek NA). Tylko jeden przypadek współwystępowania sugeruje, że braki w trzech kolumnach jednocześnie 
+nie są częste, co wskazuje na największe prawdopodobieństwo zgodności z hipotezą MCAR (braków kompletnie 
+losowych), a co za tym idzie - jeden brak nie powoduje braków w kolejnych rekordach. Zakładając taki scenariusz, 
+współwystępowanie pozostałych braków ze sobą odpowiadać może przypadkowi.
+</pre>
+
+#### Mapa występowania braków według wierszy
+
+```{r Mapa NA według wierszy, echo=FALSE}
+datatable(md.pattern(data, rotate.names = TRUE))
+```
+<pre>
+[opis]
+</pre>
+
+```{r Sprawdzenie struktury danych w zbiorze, echo=FALSE}
+datatable(data.frame(class = sapply(data, class)))
+```
+
+<pre>
+    Tabela prezentuje strukturę zmiennych w zbiorze. Ich analiza jest konieczna, aby móc dokonać 
+przekształceń zmiennych jakościowych (character) na zmienne ilościowe (numeric, integer), w celu 
+obliczenia korelacji między zmiennymi. Wybrane zmienne do przekodowania to:
+    - "Ivioice.ID"
+    - "Branch"
+    - "City"
+    - "Customer.type"
+    - "Gender"
+    - "Product.line"
+    - "Date"
+    - "Time"
+    - "Payment"
+</pre>
+
+```{r Przekodowanie zmiennych jakościowych na ilościowe, include=FALSE}
+data2 <- data.frame(data, row.names = TRUE)
+
+data2$Branch <- ifelse((data2$Branch) == "A", 1, 
+                       ifelse(data2$Branch == "B", 2, 0))
+
+data2$City <- ifelse(is.na(data2$City), NA, ifelse(data2$City == "Naypyitaw", 1,
+                                                   ifelse(data2$City == "Mandalay", 2, 0)))
+
+data2$Customer.type <- ifelse((data2$Customer.type) == "Member", 1, 0)
+
+data2$Gender <- ifelse((data2$Gender) == "Male", 1, 0)
+
+data2$Product.line <- ifelse(data2$Product.line == "Electronic accessories", 1,
+                             ifelse(data2$Product.line == "Fashion accessories", 2,
+                                    ifelse(data2$Product.line == "Food and beverage", 3,
+                                           ifelse(data2$Product.line == "Health and beauty", 4,
+                                                  ifelse(data2$Product.line == "Sports and travel", 5, 0)))))
+
+data2$Payment <- ifelse(data2$Payment == "Cash", 1, 
+                        ifelse(data2$Payment == "Credit card", 2, 0))
+
+data2$Date <- as.Date(data2$Date, format = "%m/%d/%Y")
+data2 <- data2 %>%
+  mutate(Date = month(Date))
+
+data2$Time <- as.numeric(sub(":(\\d{2}):.*", ".\\1", data2$Time))
+
+```
+
+#### Macierz korelacji braków
+<pre>
+Przy obliczaniu korelacji braków przypisano zmiennej określającej datę ("Date") numery miesiąca, w których
+dokonywano zakupu, w celu wydobycia z niej możliwie istotnych informacji (np. konkretny wzorzec występowania 
+braków)oraz przypisano zmienną Numery identyfikacyjne faktur ("Invoice.ID") do nazw wierszy, przez wzgląd na 
+ich niewielką wartość informacyjną.
+</pre>
+
+```{r Korelacja braków, echo=FALSE}
+NA_cor <- cor_mat(data2)
+```
+
+<pre>
+Korelacja dla "Procentowa marża brutto" (*ang. Gross Margin Percentage*) nie mogła zostać policzona, ze względu na
+powtażające sie wartości tej zmiennej w każdym kolejnym wierszu, wynikiem czego korelacja skutkowała nieprawidłową
+wartością `r unique(NA_cor$gross.margin.percentage)`. Na tej podstawie zmienna "Procentowa marża brutto" została
+wykluczona, w celach dalszej wizualizacji korelacji braków.
+</pre>
+
+```{r Wykluczanie zmiennej gross.margin.percentage, include=FALSE}
+data_cor <- data2 %>% mutate(gross.margin.percentage = NULL)
+
+NA_cor2 <- cor_mat(data_cor)
+```
+
+```{r Macierz korelacji braków, echo=FALSE}
+ggcorrplot(NA_cor2)
+```
+
+
+# 3. Walidacja danych
+
+```{r Dodawanie zmiennych pomocniczych, include=FALSE}
+check_cogs <- data$Quantity * data$Unit.price %>%
+              as.data.frame()
+check_Tax.5. <- .05 * data$cogs %>%
+                as.data.frame()
+check_Total <- data$Tax.5. + data$cogs %>%
+               as.data.frame()
+```
+
+```{r Sprawdzanie poprawności danych według reguł, echo=FALSE}
+check_that(data,
+           if (City == "Yangon") Branch == "A",
+           if (City == "Mandalay") Branch == "B",
+           if (City == "Naypyitaw") Branch == "C",
+           Unit.price >= 0,
+           Quantity >= 0,
+           Tax.5. == check_Tax.5.,
+           Total == check_Total,
+           cogs == check_cogs,
+           gross.margin.percentage >= 0,
+           gross.income == Tax.5.,
+           Rating >= 1,
+           Rating <= 10)
+```
+
+```{r Definowanie reguł, include=FALSE}
+rules <- validator(if (City == "Yangon") Branch == "A",
+                   if (City == "Mandalay") Branch == "B",
+                   if (City == "Naypyitaw") Branch == "C",
+                   Tax.5. == check_Tax.5.,
+                   Total == check_Total,
+                   cogs == check_cogs,
+                   Unit.price >= 0,
+                   Quantity >= 0,
+                   gross.margin.percentage >= 0,
+                   gross.income >= 0,
+                   Rating >= 1,
+                   Rating <= 10)
+```
+
+```{r Wizualizacja braków oraz błędów według reguł, echo=FALSE}
+cf <- confront(data, rules) %>%
+      barplot(main="Wyniki walidacji danych według reguł") %>%
+      suppressWarnings()
+```
+
+
+------------------------------------------------------------------------------- na koniec 
+Testy dla zmiennych zależnych
+
+```{r Testy, echo=FALSE}
+data_filled <- read.csv("supermarket_filled.csv")
+
+# H0: Płeć ma wpływ na wybór konkretnej kategorii proguktu.
+
+ggbarstats(
+  data=data_filled,
+  y=Product.line,
+  x=Gender)
+
+
+shapiro_test <- shapiro.test(data$Rating)
+results <- data.frame(
+  Statystyka = shapiro_test$statistic,
+  Wartość_p = shapiro_test$p.value
+)
+install.packages("kable")
+kable::kable(results, caption = "Wyniki testu Shapiro-Wilka")
+
+gghistostats(
+  data       = data_filled,
+  x          = Rating,
+  title      = "Ocena placówki",
+  binwidth   = 1
+)
+
+gghistostats(
+  data       = data_filled,
+  x          = Unit.price,
+  title      = "Cena jednostkowa towaru",
+  binwidth   = 1
+)
+
+
+ggbetweenstats(
+  data=data_filled,
+  y=Unit.price,
+  x=City,
+  type="np")
+
+# Nieistotne, ale można wrzucić
+ggbetweenstats(
+  data=data_filled,
+  y=Rating,
+  x=City,
+  type="np")
+
+# Jedyne istotne stat.
+ggbetweenstats(
+  data=data_filled,
+  y=Quantity,
+  x=Gender,
+  type="np")
+
+ggbetweenstats(
+  data=data_filled,
+  y=Rating,
+  x=Payment,
+  type="np")
+
+# Sprawdzenie:
+ggscatterstats(
+  data=data_filled,
+  y=cogs,
+  x=gross.income,
+  type="np")
+
+ggpiestats(
+  data = data_filled,
+  x = Unit.price,
+  y = City
+)
+
+power.t.test()
+##time????????????
+```
