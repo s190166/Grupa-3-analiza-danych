@@ -1,0 +1,891 @@
+---
+title: "Projekt - Analiza Danych"
+author: "Zuzanna Łomża"
+date: "2024-12-05"
+output:  rmdformats::readthedown
+---
+<style>
+    pre, code  {
+    font-family: 'Arial', monospace;
+    font-size: 14px;
+  }
+  .output {
+    font-family: 'Arial', monospace;
+    font-size: 14px;
+}
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+data <- read.csv("supermarket_new.csv")
+library(rmdformats)
+library(naniar)
+library(reshape2)
+library(ggplot2)
+library(rstatix)
+library(ggcorrplot)
+library(mice)
+library(validate)
+library(DT)
+library(lubridate)
+library(ggstatsplot)
+library(kableExtra)
+library(tidyr)
+```
+
+## Informacje wstępne.
+
+<pre>
+    Zbiór danych poddany analizie dotyczy historycznych sprzedaży supermarketów Biedronka, które zostały
+zarejestrowane w trzech różnych oddziałach przez trzy pierwsze miesiące 2019 roku (1.01.2019-30.03.2019). 
+Zmienne uwzglednione w zbiorze to: 
+  - 'Invoice.ID': Numer identyfikacyjny faktury sprzedaży wygenerowany komputerowo; 
+  - 'Branch': Oddział supercentrum A, B i C; 
+  - 'City': Lokalizacja supercentrów w miastach Naypyitaw, Yangon i Mandalay;
+  - 'Customer.type': Typ klientów, zarejestrowanych jako "członek" ("Member") dla klientów korzystających 
+    z karty członkowskiej i "normalny" ("Normal") dla klientów nie posaidających karty członkowskiej; 
+  - 'Gender': Płeć klienta- kobieta ("Female") i mężczyzna ("Male"); 
+  - 'Product.line': Ogólne grupy kategoryzacji przedmiotów - Akcesoria elektroniczne ("Electronic 
+    accessories"), Akcesoria modowe ("Fashion accessories"), Żywność i napoje ("Food and beverages"), 
+    Zdrowie i uroda ("Health and beauty"), Dom i styl życia ("Home and lifestyle"), Sport i podróże 
+    ("Sports and travel"); 
+  - 'Unit.price': Cena każdego produktu w $; 
+  - 'Quantity': Liczba produktów zakupionych przez klienta; 
+  - 'Tax.5.': Opłata podatkowa w wysokości 5% dla klienta dokonującego zakupu;
+  - 'Total': Całkowita cena z 5% podatkiem;
+  - 'Date': Data zakupu (rekord dostępny od stycznia 2019 r. do marca 2019 r.); 
+  - 'Time': Czas zakupu (od 10:00 do 21:00); 
+  - 'Payment': Płatność wykorzystana przez klienta do zakupu (dostępne są 3 metody - gotówka ("Cash"), 
+    karta kredytowa ("Credit card") i portfel elektroniczny ("Ewallet"); 
+  - 'cogs': Koszt sprzedanych towarów; 
+  - 'gross.margin.percentage': Procentowa marża brutto; 
+  - 'gross.income': Dochód brutto; 
+  - 'Rating': Ocena stratyfikacji klientów dotycząca ich ogólnego doświadczenia zakupowego 
+    (w skali od 1 do 10).
+</pre>
+
+## *1. Analiza brakujacych obserwacji.*
+
+<pre>
+Zbiór danych zawiera `r n_miss(data)` brakujących wartości.
+</pre>
+
+### Tabela podsumowująca braki
+
+```{r Tabela podsumowująca liczbę NA, echo=FALSE}
+datatable(miss_var_summary(data))
+```
+
+<pre>
+    Powyższa tabela wskazuje rozłożenie brakujących wartości w zbiorze. Największa liczba braków dotyczy kolumn
+'gross.income' oraz 'Rating', w których znajdowało się po 150 liczb NA. W kolumnie 'City' natomiast, braki stanowiły 
+10% wszystkich obserwacji dla tej zmiennej.
+</pre>
+
+### Wizualizacja lokalizacji braków
+
+```{r Shadow map, echo=FALSE}
+vis_miss(data, sort = TRUE)
+```
+
+<pre>
+    Wizualizacja prezentująca lokalizację braków w zbiorze skłania ku stwierdzeniu, że pojawiające się wartości NA
+są rozmieszczone w sposób losowy, bez wyraźnych wzorców grupowania się w określonych obszarach zbioru.
+    Ponadto braki te stanowią 2,9% wszystkich obserwacji, co wskazuje na ich stosunkowo niewielką liczbę.
+</pre>
+
+### Współwystępowanie braków
+
+```{r Wykres UpSet dla współwystępowania NA, echo=FALSE}
+gg_miss_upset(data, 
+              nsets = 3)
+```
+
+<pre>
+    W celu dokładniejszej analizy stworzono wykres UpSet, który prezentuje współwystępowanie braków między
+zmiennymi. Wynika z niego, że:
+  - dla zmiennej 'gross.income' 116 braków (ok. `r round(116/150*100, 2)`%) występuje niezależnie od innych zmiennych z brakującymi 
+    wartościami. Ponadto 20 braków współwystępuje ze zmienną 'Rating', 13 ze zmienną 'City', a 1 przypadek 
+    braku dotyczy wszystkich trzech zmiennych jednocześnie;
+  - zmienna 'Rating' posiada 113 braków (ok. `r round(113/150*100, 2)`%) niezależnych oraz 16 przypadków współwystępujących 
+    ze zmienną 'City';
+  - zmienna 'City', poza wskazanymi zależnościami, posiada 70 braków (`r 70/100*100`%), które nie występują równocześnie 
+    w innych rekordach.
+    Podsumowując, w analizowanym zbiorze braki najczęściej występują osobno w poszczególnych kolumnach
+(`r 116+113+70` przypadków NA), ale istnieje określona liczba przypadków, w których braki te współwystępują w dwóch 
+(`r 20+16+13` przypadków NA) lub trzech kolumnach (1 przypadek NA). Sugerować to może, że występuje pewna zależność 
+między brakami w analizowanych zmiennych, jednak przez wzgląd na ich niewielką liczbę w stosunku do całkowitej
+liczby braków (`r (20+16+13+1)/400*100`%) – mogą być to braki, których występowanie odpowiadać może przypadkowi.
+
+    W celu zweryfikowania tej hipotezy, przeprowadza się dalszą analizę obserwacji brakujących.
+</pre>
+
+
+```{r Mapa NA, echo=FALSE}
+datatable(md.pattern(data, rotate.names = TRUE), width = .01, height = .01, list(rows = 0, cols = 0))
+```
+<pre>
+    Mapa występowania braków odzwierciedla wskazane przez wykres UpSet zależności. Dodatkowo odczytać z niej 
+można, że w 651 wierszach w zbiorze nie występują żadne braki. W pozostałych 349 rekordach pojawiają się 
+pojedyncze, podwójne oraz potrójne wartości NA, co zostało wykazane powyżej.
+</pre>
+
+### Macierz korelacji braków
+
+<pre>
+    Aby sprawdzić zależności pomiędzy brakującymi obserwacjami a wartościami pozostałych zmiennych, sporządza
+się <strong>macierz korelacji braków</strong>. 
+    
+    W <strong>macierzy korelacji braków</strong> kolumny i wiersze reprezentują zmienne ze zbioru, a wartości w macierzy
+odpowiadają współczynnikom korelacji między wskaźnikami braków (zmiennymi binarnymi oznaczającymi
+obecność braków) lub między wskaźnikami braków a wartościami innych zmiennych. Na jej podstawie można
+określić, czy wartości brakujące pojawiają się losowo (MCAR, <em>Missing Completely at Random</em>), 
+czy w przypadku silnych korelacji ich występowanie zależy od innych zmiennych (MAR, <em>Missing at Random</em>). 
+
+<span style="font-family: "Times New Roman", Times, serif;">W celu jej utworzenia, wyróżnia się następujące etapy:
+  I. Sprawdzenie struktury danych w zbiorze.
+  II. Przekodwoanie wskazanych zmiennych jakościowych na ilościowe.
+  III. Obliczenie korelacji między brakami a zmiennymi ze zbioru.
+  IV. Wygenerowanie <strong>macierzy korelacji braków</strong>.</span>
+</pre>
+
+##### Etap I. Sprawdzenie struktury danych w zbiorze.
+
+```{r Sprawdzenie struktury danych w zbiorze, echo=FALSE}
+datatable(data.frame(class = sapply(data, class)))
+```
+
+<pre>
+    Tabela prezentuje strukturę zmiennych w zbiorze. Ich analiza jest konieczna, aby móc dokonać przekształceń 
+zmiennych jakościowych (<em>character</em>) na zmienne ilościowe (<em>numeric</em>, <em>integer</em>) i przejść do etapu obliczania korelacji 
+między brakami a zmiennymi. Wybrane zmienne do przekodowania to:
+  - 'Ivioice.ID'
+  - 'Branch'
+  - 'City'
+  - 'Customer.type'
+  - 'Gender'
+  - 'Product.line'
+  - 'Date'
+  - 'Time'
+  - 'Payment'.
+</pre>
+
+##### Etap II. Przekodwoanie wskazanych zmiennych jakościowych na ilościowe.
+
+```{r Przekodowanie zmiennych jakościowych na ilościowe, include=FALSE}
+data2 <- data.frame(data, row.names = TRUE)
+
+data2$Branch <- ifelse((data2$Branch) == "A", 1, 
+                       ifelse(data2$Branch == "B", 2, 0))
+
+data2$City <- ifelse(is.na(data2$City), NA, ifelse(data2$City == "Naypyitaw", 1,
+                                                   ifelse(data2$City == "Mandalay", 2, 0)))
+
+data2$Customer.type <- ifelse((data2$Customer.type) == "Member", 1, 0)
+
+data2$Gender <- ifelse((data2$Gender) == "Male", 1, 0)
+
+data2$Product.line <- ifelse(data2$Product.line == "Electronic accessories", 1,
+                             ifelse(data2$Product.line == "Fashion accessories", 2,
+                                    ifelse(data2$Product.line == "Food and beverage", 3,
+                                           ifelse(data2$Product.line == "Health and beauty", 4,
+                                                  ifelse(data2$Product.line == "Sports and travel", 5, 0)))))
+
+data2$Payment <- ifelse(data2$Payment == "Cash", 1, 
+                        ifelse(data2$Payment == "Credit card", 2, 0))
+
+data2$Date <- as.Date(data2$Date, format = "%m/%d/%Y")
+data2 <- data2 %>%
+  mutate(Date = month(Date))
+
+data2$Time <- as.numeric(sub(":(\\d{2}):.*", ".\\1", data2$Time))
+
+```
+
+<pre>
+Na etapie przekodowania zmiennych, dokonano przekształcenia:
+  - na zmienne binarne (0,1): 'Customer.type' oraz 'Gender';
+  - na zmienne wielokategorialne (w zakresie 0-5): 'Branch' (0,1,2), 'City' (0,1,2), 'Product.line' (0,1,2,3,4,5)
+    i 'Payment' (0,1,2).
+      
+    Ponadto przypisano zmiennej określającej datę zakupu towaru ('Date') odpowiadające jej numery miesiąca (1,2,3),
+w celu wydobycia z niej możliwie istotnych informacji (np. konkretny wzorzec występowania braków) oraz przypisano 
+zmienną 'Invoice.ID' do nazw wierszy, przez wzgląd na jej niewielką wartość informacyjną.
+</pre>
+
+##### Etap III. Obliczenie korelacji między brakami a zmiennymi ze zbioru.
+
+```{r Korelacja braków, echo=FALSE}
+NA_cor <- cor_mat(data2)
+```
+
+<pre>
+    Po utowrzeniu zmiennej binarnej (0,1) reprezentującej wskaźnik braków, gdzie 1 oznacza brak wartości, 
+a 0 - jej obecność, obliczono wartość korelacji między danymi wskaźnikami oraz wskaźnikami i wartościami
+innych zmiennych.
+</pre>
+
+```{r Wykluczanie zmiennej gross.margin.percentage, include=FALSE}
+data_cor <- data2 %>% mutate(gross.margin.percentage = NULL)
+
+NA_cor2 <- cor_mat(data_cor)
+```
+
+<pre>
+    Dla 'gross.margin.percentage' korelacja nie mogła zostać policzona, ze względu na powtarzające sie wartości tej 
+zmiennej w każdym kolejnym wierszu, wynikiem czego korelacja skutkowała nieprawidłową wartością `r unique(NA_cor$gross.margin.percentage)`. Z tego
+względu zmienna ta została wykluczona z analizy korelacji, w celach dalszej wizualizacji korelacji braków.
+</pre>
+
+##### Etap IV. Wygenerowanie <em>macierzy korelacji braków</em>.
+
+```{r Macierz korelacji braków, echo=FALSE}
+ggcorrplot(NA_cor2)
+```
+
+<pre>
+    Macierz korelacji braków przedstawiona na wizualizacji wskazuje na istnienie bardzo silnej, dodatniej korelacji między 
+wartościami brakującymi a wartościami zmiennych: 'Total', 'Tax.5.', 'cogs' oraz 'gross.income' i silnej, dodatniej korelacji
+wartości zmiennych: 'cogs', 'Unit.price', 'Quantity' i 'gross.income'. Ponadto zaobserwowano istotną korelację
+dodatnią dla zmiennych 'Branch' i 'City'.
+    Wyniki te oznaczają, że jeśli jedna ze wskazanych zmiennych posiada brakującą wartość, istnieje duże 
+prawdopodobieństwo, że pozostałe zmienne również będą zawierać brakujące obserwacje. 
+    To z kolei sugeruje, że w przypadku zmiennych o charakterze finansowym, takie braki mogą być losowe (MAR), 
+zależne od innych wartości, lub jeśli wartości były celowo pomijane - nielosowe (NMAR), niezależne od pozostałych 
+zmiennych. 
+    Natomiast w przypadku zmiennych dotyczących lokalizacji sklepów, bardziej prawdopodobne jest, że braki
+w zmiennej 'City' mają charakter losowy (MAR). Wynika to z faktu, że konkretna lokalizacja jest powiązana
+z danym oddziałem sklepu ('Branch'), więc brak informacji o mieście wynikać może z wcześniej podanej informacji 
+o oddziale.
+    Dodatkowo, braki w zmiennej 'Rating' nie wykazują żadnych zależności z innymi wartościami zmiennych. Na tej 
+podstawie można przypuszczać, że są to braki typu MCAR i zasadnym jest zastosowanie prostej imputacji danych.
+</pre>
+
+### Sprawdzenie zależności występowania braków w zmiennej 'gross.income'
+
+<pre>
+    W celu sprawdzenia mechanizmu występowania wartości brakujących w zmiennej 'gross.income' oraz dobrania 
+do niej odpowiedniej formy imputacji, należy dokonać analizy wykazanych zależności z wartościami zmiennych 
+'Total', 'Tax.5.', 'cogs' oraz 'Quantity' i 'Unit.price'.
+    Występowanie korelacji pomiędzy wymienionymi zmiennymi można wyjaśnić w prosty sposób, biorąc pod uwagę
+definicję wskazanych zmiennych i ich odzwiercielenie faktycznych wartości finansowych. 
+</pre>
+
+```{r Sprawdzenie wartości zmiennych, echo=FALSE}
+results1 <- data.frame(
+  Warunek = c(
+    "Czy koszt sprzedanych produktów jest równy iloczynowi ilości sprzedanych produktów i kosztowi jednostkowemu produktu (przychodom ze sprzedaży)?",
+    "Czy opłata podatkowa od sprzedaży (5%) jest równa iloczynowi kosztu sprzedanych towarów i 5% podatku?",
+    "Czy całkowita kwota do zapłaty przez klienta z uwzglenieniem podatku jest równa sumie kosztów sprzedanych towarów i opłacie podatkowej (5%)?",
+    "Czy dochód brutto za sprzedane towary jest równy różnicy całkowitej kwoty do zapłaty z podatkiem i kosztów sprzedanych towarów?"
+  ),
+  Wynik = c(
+    if (all(data$cogs == data$Quantity * data$Unit.product)) "TAK" else "NIE",
+    if (all(round(data$Tax.5., 4) == round(data$cogs * 0.05, 4))) "TAK" else "NIE",
+    if (all(round(data$Total, 4) == round(data$cogs + data$Tax.5., 4))) "TAK" else "NIE",
+    if (all(round(data$gross.income, 4) == round(data$Total - data$cogs, 4) | is.na(data$gross.income))) "TAK" else "NIE"
+  )
+)
+datatable(results1, options = list(dom = 't', paging = FALSE))
+```
+<pre>
+Analiza wartości tych zmiennych wykazuje, że:
+  - zmienna 'cogs' mówiąca o koszcie wytworzenia sprzedanych towarów jest równa przychodowi ze sprzedaży, a co 
+    za tym idzie - iloczynowi ilości sprzedanych produktów ('Quantity') i kosztowi jednostkowemu produktu ('Unit.price'):
+    <em>'cogs' = 'Quantity' * 'Unit.price'</em>;
+  - zmienna 'Tax.5.' mówiąca o opłacie podatkowej od sprzedaży w wysokości 5% jest równa iloczynowi kosztu
+    sprzedanych towarów ('cogs') i 5% podatku:
+    <em>'Tax.5. = 'cogs' * 5%</em>;
+  - zmienna 'Total' mówiąca o całkowitej kwocie do zapłaty przez klienta za pojedynczą fakturę, z uwzglenieniem
+    podatku jest równa sumie kosztów sprzedanych towarów ('cogs') i opłacie podatkowej w wysokości 5% ('Tax.5.'):
+    <em>'Total' = 'cogs' + 'Tax.5.'</em>;
+  - zmienna 'gross.income' mówiąca o dochodzie brutto (zysku) za sprzedane towary, która w rzeczywistości
+    odzwierciedla różnicę przychodów ze sprzedaży i kosztu sprzedanych produktów, w zbiorze danych jest
+    równowartością różnicy całkowitej kwoty do zapłaty z podatkiem ('Total') i kosztów wytworzenia sprzedanych
+    produktów ('cogs'):
+    <em>'gross.income' = 'Total' - 'cogs'</em>
+Jeśli zatem <em>'Total' = 'cogs' + 'Tax.5.'</em>, to <em>'gross.income' = ('cogs' + 'Tax.5.') - 'cogs' = 'Tax.5.'</em>
+
+    Tę zależność potwierdza poniższa wizualziacja.
+</pre>
+    
+```{r Porównanie rozkładów gross.income i Tax.5., echo=FALSE, warning=FALSE}
+data_long <- data %>%
+  pivot_longer(cols = c(gross.income, Tax.5.), names_to = "Zmienna", values_to = "Wartość")
+
+ggplot(data_long, aes(x = Wartość, fill = Zmienna)) +
+  geom_histogram(alpha = 0.5, bins = 30, position = "identity") +
+  scale_fill_manual(values = c("gross.income" = "#e71d36", "Tax.5." = "#f8ad9d")) +
+  labs(
+    title = "Porównanie rozkładów gross.income i Tax.5.",
+    subtitle = "Z pominięciem 150 wierszy z brakującymi wartościami dla zmiennej 'gross.income'",
+    x = "Wartość",
+    y = "Częstość",
+    fill = "Zmienna"
+  )
+```
+<pre>
+    Histogram przedstawia porównanie rozkładów zmiennych 'gross.income' oraz 'Tax.5.'. Obie zmienne są nałożone
+na siebie, w celu umożliwienia bezpośredniego porównania ich kształtu i rozkładu. Ze zbioru obserwacji zmiennej
+'gross.income' wykluczono 150 obserwacji brakujących, co nieznacznie zaniża jej rozkład. Zauważyć jednak można,
+że dla obu zmiennych, wartości obserwacji skupiają sie w zakresie 0-25, czyniąc je prawostronnie skośnymi. 
+Ponadto obserwowalna jest zależność, w której częstość występowania danych wartości dla obu zmiennych 
+odzwierciedla niemalże identyczny kształt rozkładu, z wysokimi i niskimi częstościami w tych samych przedziałach.
+
+    W związku z powyższą analizą dotyczącą zależności między brakami zmiennej 'gross.inocme' a zmiennymi 'Total', 
+'Tax.5.' oraz 'cogs' można wyciągnąć wniosek, że związek wartości 'gross.income' z wartościami pozostałych
+zmiennych wynika z finansowych powiązań między nimi. Dodatkowo, można przyjąć, że wartości zmiennej 
+'gross.income' odpowiadają wartościom zmiennej Tax.5. i zasadnym jest zastosowanie imputacji poprzez 
+zastąpienie wartości brakujących obserwacjami pełnowartościowej zmiennej.
+</pre>
+
+### Sprawdzenie zależności występowania braków w 'City' od zmiennej 'Branch'
+
+```{r Wykres braków w City według oddziału, echo=FALSE}
+City_info <- ifelse(is.na(data$City), "Brak informacji o 'City'", "Podana informacja o 'City'")
+
+ggplot(data, aes(x = Branch, fill = City_info)) +
+  geom_bar(position = "fill") + 
+  geom_text(
+    aes(label = scales::percent(after_stat(count)/ sum(after_stat(count)))), 
+    stat = "count", position = position_fill(vjust = 0.5)
+  ) +
+  labs(y = "%", title = "Procent braków w 'City' dla każdego oddziału ('Branch')") +
+  scale_fill_manual(values = c("Brak informacji o 'City'" = "#bfd7ff", "Podana informacja o 'City'" = "#788bff")) +
+  theme_minimal()
+```
+
+<pre>
+    Aby lepiej zrozumieć zależność między wartościami brakujacymi w zmiennej 'City' a wartościami zmiennej 'Branch'
+sporządzono powyższy wykres słupkowy. Wskazuje on, że braki w każdym z oddziałów ('Branch') są rozłożone
+równomiernie (wynoszą ok. `r mean(3.5, 2.8, 3.7)`%), z niewielkimi odchyleniami (ok. `r round(sd(c(3.5, 2.8, 3.7)), 2)`p. %). Może to świadczyć o tym, że braki 
+nie są zależne od konkretnych oddziałów.
+</pre>
+
+```{r Test chi^2 dla City i Branch, echo=FALSE}
+City_table <- table(City_info, data$Branch)
+
+chi2_City_NA <- chisq.test(City_table)
+
+as.data.frame(City_table) %>%
+  pivot_wider(names_from = Var2, values_from = Freq, values_fill = 0) %>%
+  datatable(,  options = list(paging = FALSE, searching = FALSE, info = FALSE))
+
+chi2 <- chi2_City_NA$statistic
+p <- chi2_City_NA$p.value
+parametr <- chi2_City_NA$parameter
+
+chi2_City_NA <- data.frame(
+  Statistic = round(chi2, 2),
+  p_value = round(p, 2),
+  df = round(parametr, 2))
+
+chi2_City_NA %>%
+  kable("html", caption = "Wynik testu chi-kwadrat", align = 'c') %>%
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed", "responsive"),
+    full_width = FALSE,
+    html_font = "Arial",
+    font_size = 15
+  )
+```
+
+<pre>
+    W ramach sprawdzenia zależności braków zmiennej 'City' od zmiennej 'Branch' wykonano nieparametryczny test 
+zależności chi2. Hipotezy dla tesu brzmiały następująco:
+
+    H0: <em>Braki w 'City' są niezależne od zmiennej 'Branch'.</em>
+    HA: <em>Braki w 'City' są zależne od zmiennej 'Branch'.</em>
+    
+    Statystyka chi2 równa 1,54 przy wartości p-value (0,46) większej od przyjętego poziomu istotności (0,05) wykazała, 
+że nie ma podstaw do odrzucenia H0 mówiącego o niezależności braków obserwacji zmiennej 'City' od wartości 
+zmiennej 'Branch'. 
+    Wobec tego, można wskazać, że braki występujące w zmiennej 'City' nie mają statystycznie istotnej zależności 
+i można zastosować dla nich prostą imputację danych.
+</pre>
+
+### PODSUMOWANIE
+
+<pre>
+    Z powyższej analizy dotyczącej obserwacji brakujących w zbiorze danych dotyczącym sprzedaży w trzech sklepach
+Biedronka wynika, że wartości NA występują w trzech zmiennych: 'gross.income' (150 przypadków braków), 'Rating'
+(150 przypadków braków) oraz 'City' (100 przypadków braków).
+
+    Przedstawione wizualizacje oraz testy wykazały, że braki te najprawdopodobniej są losowe (MAR) lub kompletnie
+losowe (MCAR) w przypadku zmiennej finansowej 'gross.income' oraz zmiennej dotyczącej lokalzacji 'City' i kompletnie
+losowe (MCAR) w przypadku zmiennej 'Rating'. 
+    W zwiazku z tym, zaleca się stosowanie prostej imputacji danych polegającej na uzupełnieniu brakujących wartości 
+w zmiennej 'gross.income' wartościami ze zmiennej 'Tax.5.', przypisaniu brakującym wartościom zmiennej 'City'
+odpowieniej nazwy miasta w oparciu o oddział 'Branch', jaki jest mu przypisany oraz zastosowaniu np. średniej
+lub mediany w uzupełnieniu zmiennej 'Rating', bądź uzupełnianiu jej poprzez wielokrotną imputację, przy pomocy
+pakietu "mice" (<em>Multiple Imputation by Chained Equations</em>).
+</pre>
+
+## *2. Walidacja danych.*
+
+<pre>
+    W celu sprawdzenia, czy wartości w zbiorze danych spełniają określone krytera dla zmiennych, których poprawne
+zachowanie jest niezbędne do dalszej analizy, obejmującej m.in. imputację, wizualizację, wnioskowanie statatystyczne
+i testowanie, stosuje się <strong>walidację danych</strong>. 
+    Proces ten polega na definiowaniu reguł, jakie muszą spełnić zmienne w zbiorze, a następnie sprawdzenie, czy
+występują w nim jakiekolwiek nieprawidłowości w postaci "brudnych" danych. Jeżeli analiza wykaże obecność takich
+wartości, kolejnym etapem jest "czyszczenie" zbioru. Może to obejmować poprawę danych (np. dopasowanie
+do prawidłowego formatu) lub usunięcie informacji, które są nieistotne dla badania, a mogą zakłócać działanie
+programu i proces dalszej analizy. 
+</pre>
+
+### Sprawdzanie ppoprawności danych zależnych
+```{r Dodawanie zmiennych pomocniczych, include=FALSE}
+check_cogs <- data$Quantity * data$Unit.price %>%
+              as.data.frame()
+check_Tax.5. <- .05 * data$cogs %>%
+                as.data.frame()
+check_Total <- data$Tax.5. + data$cogs %>%
+               as.data.frame()
+check_gross.income <- data$Total - data$cogs %>%
+                      as.data.frame()
+```
+
+```{r Definowanie reguł, echo=FALSE}
+rules <- validator(if (City == "Yangon") Branch == "A",
+                   if (City == "Mandalay") Branch == "B",
+                   if (City == "Naypyitaw") Branch == "C",
+                   Tax.5. == check_Tax.5.,
+                   Total == check_Total,
+                   cogs == check_cogs,
+                   gross.income == check_gross.income,
+                   Unit.price >= 0,
+                   Quantity >= 0,
+                   gross.margin.percentage >= 0,
+                   Rating >= 1,
+                   Rating <= 10)
+```
+
+<pre>
+    Dla analizowanego zbioru danych zdefiniowano reguły walidacyjne, dla wybranych zmiennych zależnych
+jakościowych i ilościowych, których nieprawidłowości mogłyby mieć istotny wpływ w dalszej analizie.
+
+Określone reguły przedstawia się następująco:
+</pre>
+
+```{r Reguły - tabelka, echo=FALSE}
+reguly <- data.frame(
+  LP = 1:12,
+  Reguła = c(
+    "Jeśli lokalizacja sklepu ('City') to 'Yangon', odpowiadający mu oddział ('Branch') to oddział 'A'.",
+    "Jeśli lokalizacja sklepu ('City') to 'Mandalay', odpowiadający mu oddział ('Branch') to oddział 'B'.",
+    "Jeśli lokalizacja sklepu ('City') to 'Naypyitaw', odpowiadający mu oddział ('Branch') to oddział 'C'.",
+    "Opłata podatkowa od sprzedaży w wysokości 5% ('Tax.5.') jest równa iloczynowi kosztu sprzedanych towarów ('cogs') i 5% podatku.",
+    "Całkowita kwota do zapłaty przez klienta za pojedynczą fakturę z uwzględnieniem 5% podatku ('Total') jest równa sumie kosztów sprzedanych towarów ('cogs') i opłacie podatkowej w wysokości 5% ('Tax.5.').",
+    "Koszt wytworzenia sprzedanych towarów jest równy iloczynowi ilości sprzedanych produktów ('Quantity') i kosztowi jednostkowemu produktu ('Unit.price').",
+    "Dochód brutto za sprzedane towary ('gross.income') jest równy różnicy całkowitej kwoty do zapłaty z 5% podatkiem ('Total') i kosztów wytworzenia sprzedanych produktów ('cogs').",
+    "Cena jednostkowa produktu ('Unit.price') jest równa lub wyższa od 0.",
+    "Ilość sprzedanych produktów ('Quantity') jest równa lub wyższa od 0.",
+    "Procentowa marża brutto ('gross.margin.income') jest równa lub wyższa od 0.",
+    "Ocena stratyfikacji klientów dotycząca ich ogólnego doświadczenia zakupowego jest równa lub większa od 1.",
+    "Ocena stratyfikacji klientów dotycząca ich ogólnego doświadczenia zakupowego jest równa lub mniejsza od 10."
+  )
+)
+
+datatable(reguly, options = list(dom = 't', paging = FALSE), rownames = FALSE)
+```
+
+
+```{r Wizualizacja braków oraz błędów według reguł, echo=FALSE}
+cf <- confront(data, rules) %>%
+      barplot(main="Wyniki walidacji danych według reguł") %>%
+      suppressWarnings()
+```
+<pre>
+    Powyższa wizualizacja wskazuje, że w analizowanym zbiorze danych nie występują nieprawidłowości w postaci 
+"brudnych" wartości w zmiennych zależnych o określonych regułach.
+</pre>
+
+### Sprawdzenie poprawności zmiennych kategorycznych
+```{r Sprawdzenie poprawności pozostałych zmiennych kategorycznych, echo=FALSE}
+correct_values_Product.Line <- c("Health and beauty", "Electronic accessories", "Home and lifestyle", "Sports and travel", "Food and beverages", "Fashion accessories")
+all_correct_Product.line <- all(data$Product.line %in% correct_values_Product.Line)
+
+correct_values_Gender <- c("Female", "Male")
+all_correct_Gender <- all(data$Gender %in% correct_values_Gender)
+
+correct_values_Customer.type <- c("Normal", "Member")
+all_correct_Customer.type <- all(data$Customer.type %in% correct_values_Customer.type)
+
+correct_values_Payment <- c("Ewallet", "Cash", "Credit card")
+all_correct_Payment <- all(data$Payment %in% correct_values_Payment)
+
+results3 <- data.frame(
+  Warunek = c(
+    "Czy zmienna 'Product.line' posiada prawidłowe wartości?",
+    "Czy zmienna 'Gender' posiada prawidłowe wartości?",
+    "Czy zmienna 'Customer.type' posiada prawidłowe wartości?",
+   "Czy zmienna 'Payment' posiada prawidłowe wartości?"
+  ),
+  Wynik = c(
+    ifelse(all_correct_Product.line, "TAK", "NIE"),
+    ifelse(all_correct_Gender, "TAK", "NIE"),
+    ifelse(all_correct_Customer.type, "TAK", "NIE"),
+    ifelse(all_correct_Payment, "TAK", "NIE")
+  )
+)
+datatable(results3, options = list(dom = 't', paging = FALSE))
+```
+
+<pre>
+    Ponadto można stweirdzić, że zbiór ten nie posiada również nieprawidłowości w postaci m.in. literówek 
+w wartościach zmiennych kategorycznych.
+</pre>
+
+### Sprawdzenie występowania duplikatów rekordów
+
+```{r Sprawdenie występowania duplikatów rekordów, echo=FALSE}
+duplicates <- duplicated(data)
+
+results2 <- data.frame(
+  Reguła = "Czy zbiór posiada duplikaty wierszów?",
+  Wynik = ifelse(any(duplicated(data)), "TAK", "NIE")
+)
+
+datatable(results2, options = list(dom = 't', paging = FALSE), rownames = FALSE)
+```
+
+<pre>
+W zbiorze tym nie występują również duplikaty wierszów. 
+</pre>
+
+### PODSUMOWANIE
+
+<pre>
+    Z powyższej analizy dotyczącej identyfikacji nieprawidłowości w zbiorze danych dotyczącym sprzedaży w trzech 
+sklepach Biedronka wynika, że wartości zmiennych są poprawne i nie wymagają poddania procesowi czyszczenia
+danych (<em>Data Cleansing</em>).
+</pre>
+
+
+------------------------------------------------------------------------------- na koniec 
+
+## *9. Wnioskowanie statystyczne.*
+
+<pre>
+    Końcowa analiza zbioru danych dotyczącego sprzedaży w trzech sklepach Biedronka polega na przeprowadzeniu
+testów parametrycznych i nieparametrycznych w celu zrozumienia określonych wartości zmiennych.
+
+    Zmienne ilościowe brane pod uwagę przy testowaniu to: 'Rating', Unit.price', 'Quantity' i 'Total', natomiast 
+zmienne kategoryczne to: 'City', 'Customer.type' i 'Payment'.
+</pre>
+
+### Testowanie normalności rozkładów
+
+<pre>
+    Testowanie normalności rozkładów zmiennych opiera się na statystyce Shapiro-Wilka oraz wykresie Q-Q 
+(<em>Quantile-Quantile</em>), porównującym rozkład empiryczny danej zmiennej z rozkładem normalnym.
+
+    Hipotezy dla testu Shapiro-Wilka brzmią następująco:
+    
+    H0: <em>Badana zmienna posiada rozkład normalny wartości.</em>
+    HA: <em>Badana zmienna nie posiada rozkładu normalnego wartości.</em>
+</pre>
+
+```{r Wczytanie danych, include=FALSE}
+data_filled <- read.csv("supermarket_filled.csv")
+```
+
+#### *> Zmienna 'Rating'*
+```{r Testy normalności - Rating, echo=FALSE}
+shapiro_test1 <- shapiro.test(data_filled$Rating)
+results4 <- data.frame(
+  Statystyka = round(shapiro_test1$statistic, 2),
+  p_value = round(shapiro_test1$p.value, 2))
+
+results4 %>%
+  kable("html", caption = "Test Shapiro-Wilka", align = 'c') %>%
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed", "responsive"),
+    full_width = FALSE,
+    html_font = "Arial",
+    font_size = 14)
+
+ggplot(data_filled, aes(sample = Rating)) +
+  stat_qq(color = "#007ea7") +
+  stat_qq_line() +
+  theme_minimal() +
+  labs(title = "Wykres Q-Q dla zmiennej 'Rating'",
+       x = "Teoretyczne kwantyle",
+       y = "Empiryczne kwantyle")
+```
+
+#### *> Zmienna 'Unit.price'*
+```{r Testy normalności - Unit.price, echo=FALSE}
+shapiro_test2 <- shapiro.test(data_filled$Unit.price)
+results5 <- data.frame(
+  Statystyka = round(shapiro_test2$statistic, 2),
+  p_value = round(shapiro_test2$p.value, 2))
+
+results5 %>%
+  kable("html", caption = "Test Shapiro-Wilka", align = 'c') %>%
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed", "responsive"),
+    full_width = FALSE,
+    html_font = "Arial",
+    font_size = 14)
+
+
+ggplot(data_filled, aes(sample = Unit.price)) +
+  stat_qq(color = "#db5375") +
+  stat_qq_line() +
+  theme_minimal() +
+  labs(title = "Wykres Q-Q dla zmiennej 'Unit.price'",
+       x = "Teoretyczne kwantyle",
+       y = "Empiryczne kwantyle")
+```
+
+#### *> Zmienna 'Quantity'*
+```{r Testy normalności - Quantity, echo=FALSE}
+shapiro_test3 <- shapiro.test(data_filled$Quantity)
+results6 <- data.frame(
+  Statystyka = round(shapiro_test3$statistic, 2),
+  p_value = round(shapiro_test3$p.value, 2))
+
+results6 %>%
+  kable("html", caption = "Test Shapiro-Wilka", align = 'c') %>%
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed", "responsive"),
+    full_width = FALSE,
+    html_font = "Arial",
+    font_size = 14)
+
+
+ggplot(data_filled, aes(sample = Quantity)) +
+  stat_qq(color = "#218380") +
+  stat_qq_line() +
+  theme_minimal() +
+  labs(title = "Wykres Q-Q dla zmiennej 'Quantity'",
+       x = "Teoretyczne kwantyle",
+       y = "Empiryczne kwantyle")
+```
+
+#### *> Zmienna 'Total'*
+```{r Testy normalności - Total, echo=FALSE}
+shapiro_test4 <- shapiro.test(data_filled$Total)
+results7 <- data.frame(
+  Statystyka = round(shapiro_test4$statistic, 2),
+  p_value = round(shapiro_test4$p.value, 2))
+
+results7 %>%
+  kable("html", caption = "Test Shapiro-Wilka", align = 'c') %>%
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed", "responsive"),
+    full_width = FALSE,
+    html_font = "Arial",
+    font_size = 14)
+
+ggplot(data_filled, aes(sample = Total)) +
+  stat_qq(color = "#f6bd60") +
+  stat_qq_line() +
+  theme_minimal() +
+  labs(title = "Wykres Q-Q dla zmiennej 'Total'",
+       x = "Teoretyczne kwantyle",
+       y = "Empiryczne kwantyle")
+```
+
+<pre>
+    Testy normalności rozkładów zmiennych: 'Rating', 'Unit.price', 'Quantity' oraz 'Total' wykazały, że są to zmienne
+nie posiadające rozkładów normalnych swoich wartości. 
+    Wniosek ten uzasadnia statystyka Shapiro-Wilka, która w przypadku każdej zmiennej wyniosła ok. `r mean(.96,.65,.93,.91)`,
+a odpowiadająca jej wartość p-value przyjęła wartość niższą od przyjętego poziomu istotności (0 < 0,05), czym 
+wykazała, że istnieją przesłanki, aby odrzucić H0 mówiącą o normalności rozkładu wartości badanych zmiennych.
+    Ponadto wykresy Q-Q dla wymienionych zmiennych nie przyjęły postaci linii prostej, znacznie odchylając się od 
+rozkładu normalnego, czym również przyczyniły się do wsparcia hipotezy o braku rozkładu normalnego zmiennych 
+'Rating', 'Unit.price', 'Quantity' oraz 'Total'.
+
+    Wobec powyższego przyjmuje się, że dalsze analizowanie zmiennych opierać się będzie o testy nieparametryczne.
+</pre>
+
+### Testy nieparametryczne dla wybranych zmiennych ilościowych i kategorycznych
+
+#### Histogramy i test Wilcoxona
+
+```{r Test nieparametryczny dla Total, echo=FALSE, message=FALSE, warning=FALSE}
+gghistostats(
+  data       = data_filled,
+  x          = Rating,
+  title      = "Ocena placówki",
+  type = "np",
+  test.value = 5.5,
+  binwidth   = 1
+) +
+scale_x_continuous(limits = c(1, 10), breaks = seq(1, 10, by = 1))
+
+gghistostats(
+  data       = data_filled,
+  x          = Unit.price,
+  title      = "Cena jednostkowa towaru",
+  type = "np",
+  test.value = 55.23,
+  binwidth   = 1
+)
+
+gghistostats(
+  data       = data_filled,
+  x          = Quantity,
+  title      = "Liczba zakupionych towarów",
+  type = "np",
+  test.value = 5,
+  binwidth   = 1
+)
+
+
+gghistostats(
+  data = data.frame(data_filled),
+  x = Total,
+  title      = "Całkowita cena zakupu z 5% podatkiem",
+  type = "np",
+  normal.curve = TRUE,
+  test.value = 253.85,
+  binwidth = 5
+)
+```
+<pre>
+Przedstatwione wyżej histogramy dla wybranych zmiennych ilościowych wykazały, że:
+  - rozkład wartości dla zmiennej 'Rating' jest lewostronnie skośny, gdyż większość wartości skupia się po prawej
+    stronie od mediany równej `r median(1:10)`. Ponadto najczęściej przyznawaną oceną dla sklepu było 6 (17,5%
+    klientów), a najrzadsze oceny miały zakres 1-3,9 (0% klientów).
+  - rozkład wartości dla zmiennej 'Unit.price' nie wykazuje obserwowalnego skupienia po którejś ze stron mediany
+    równej 55,23. Oznacza to, że ceny produktów były mniej więcej podobne, istnieją jednak pojedyncze odstępstwa
+    od tych wartości;
+  - rozkład wartości dla zmiennej 'Quantity' jest nieznacznie prawostronnie skośny od mediany równej 5, co świadczyć
+    może, że zwyczajowa liczba produktów kupowana przez badanych klientów była większa niż 5. Ponadto największa
+    liczba klientów (ok. 11,5%) kupowała 10 sztuk towaru w danej lokalizacji i czasie;
+  - rozkład wartości dla zmiennej 'Total' jest prawostronnie skośny, o czym świadczy fakt, że wartości rozciągają się
+    po prawej stronie od mediany równej 253,85, a większość wartości koncentruje się po jej lewej stornie. Stwierdzić
+    zatem można, że największa liczba transakcji opiewała na kwoty z przedziału ok. 0-250 dolarów, gdyż wartości
+    w przedziale 0-250 dolarów dominują, ale pojawiają się również wartości dochodzące do 1050 dolarów, co ma
+    wpływ na końcową skośność. 
+    
+    Ponadto statystyka Wilcoxona, dla której testowane są hipotezy:
+    
+    H0: <em>Rozkład wartości zmiennej nie różni się od mediany jej wartości,</em>
+    HA: <em>Rozkład wartości zmiennej różni się od mediany jej wartości,</em>
+    
+    wykazała, że na podstawie wartości p-value, która jest bliska 0 dla wszystkich zmiennych (p-value < 0,05) można
+odrzucić H0 mówiące o braku różnic między wartościami zmiennych, a ich medianą.
+</pre>
+
+#### Testy zależności
+
+##### *> Testy zależności dla zmiennej 'Rating'*
+```{r Testy zależności - Rating1, echo=FALSE, fig.show='hold'}
+ggbetweenstats(
+  data=data_filled,
+  y=Rating,
+  x=City,
+  type="np")
+```
+<pre>
+Dla nieparametrycznego testu Kruskala-Wallisa zależności bada się następujące hipotezy:
+
+    H0: <em>Rozkład wartości zmiennej ocen ('Rating') w każdym mieście ('City') jest taki sam.</em>
+    HA: <em>Rozkład wartości zmiennej ocen ('Rating') w każdym mieście ('City') nie jest taki sam.</em>
+    
+    Statystyka testu wyniosła 1,86 przy wartości p-value większej od przyjętego poziomu istotności alfa (0,39 > 0,05), 
+co wskazuje, że nie ma istotnych przesłanek do odrzucenia H0, twierdzącego, że rozkłady wartości ocen we wszystkich 
+trzech miastach, gdzie znajdują się sklepy są sobie równe.
+</pre>
+
+```{r Testy zależności - Rating2, echo=FALSE, fig.show='hold'}
+ggbetweenstats(
+  data=data_filled,
+  y=Rating,
+  x=Customer.type,
+  type="np")
+```
+
+<pre>
+Dla nieparametrycznego testu zależności Manna-Whitneya między zmienną 'Rating' a 'Customer.type' bada się hipotezy:
+
+    H0: <em>Mediany ocen ('Rating') nadawanych przez oba typy klientów ('Customer.type') są sobie równe, a rozkłady 
+           dla klienta "Member" i "Normal" są identyczne.</em>
+    HA: <em>Mediany ocen ('Rating') nadawanych przez oba typy klientów ('Customer.type') nie są sobie równe, 
+            a rozkłady dla klienta "Member" i "Normal" są nie identyczne.</em>
+        HA1: <em>Mediana ocen ('Rating') nadawanych przez posiadaczy karty członkowskiej jest większa od mediany ocen
+                 osób nieposiadających karty.</em>
+        HA2: <em>Mediana ocen ('Rating') nadawanych przez posiadaczy karty członkowskiej jest mniejsza od mediany 
+                 ocen osób nieposiadających karty.</em>
+    
+    Statystyka testu wyniosła ok. 119 000 przy wartości p-value większej od przyjętego poziomu istotności alfa
+(0,2 > 0,05), co wskazuje, że nie ma istotnych przesłanek do odrzucenia H0 twierdzącego, że mediany wartości ocen 
+nadawanych przez osobę posiadającą kartę członkowską nie różnią się znacząco od mediany ocen przyznawanych 
+przez klientów nie będących w jej posiadaniu. Ponadto test wykazał, że rozkłady dla obu typów klientów są z dużym 
+prawdopodobieństwem identyczne.
+</pre>
+
+#### *Testy zależności zmiennej 'Quantity' oraz 'Gender'*
+```{r Testy zależności zmiennej Quantity oraz Gender, echo=FALSE}
+ggbetweenstats(
+  data=data_filled,
+  y=Quantity,
+  x=Gender,
+  type="np")
+```
+
+<pre>
+Dla nieparametrycznego testu zależności Manna-Whitneya zmiennej 'Gender' i 'Quantity' bada się hipotezy:
+
+    H0: <em>Mediany ilości zakupionych produktów ('Quantity') przez klientów obu płci ('Customer.type') są sobie
+            równe i rozkłady dla "Female" i "Male" są identyczne.</em>
+    HA: <em>Mediany ilości zakupionych produktów ('Quantity') przez klientów obu płci ('Customer.type') nie są sobie 
+            równe i rozkłady dla "Female" i "Male" nie są identyczne.</em>
+        HA1: <em>Mediana ilości zakupionych produktów ('Quantity') przez kobiety ("Female") jest większa od
+                 mediany ilości towarów dla mężczyzn ("Male").</em>
+        HA2: <em>Mediana ilości zakupionych produktów ('Quantity') przez kobiety ("Female") jest mniejsza od
+                 mediany ilości towarów dla mężczyzn ("Male").</em>
+    
+    Statystyka testu wyniosła ok. 136 000 przy wartości p-value mniejszej od przyjętego poziomu istotności alfa 
+(0,2 < 0,05), co wskazuje, że istnieją istotne przesłanki, aby odrzucić H0 twierdzącą, że mediany ilości produktów 
+zakupionych przez klientów obu płci są sobie równe, a rozkład wartości ilości zakupionych produktów dla kobiet 
+i mężczyzn są identyczne. Ponadto stwierdzić można, że mediana ilości zakupionych towarów kobiet jest większa 
+od mediany dla mężczyzn.
+</pre>
+
+#### *Test korelacji między zmiennymi 'Customer.type' i 'Payment'*
+```{r Korelacja między Customer.type i Payment, echo=FALSE}
+ggbarstats(
+  data=data_filled,
+  y=Customer.type,
+  x=Payment,
+  typr = "np")
+```
+<pre>
+    Dla nieparametrycznego testu Pearsona (p) badającego korelację między zmiennymi 'Customer.type' i 'Payment'
+bada się następujące hipotezy:
+
+    H0: <em>Nie istnieje korelacja między osobami posiadającymi i nieposiadającymi kartę członkowską sklepu a formą 
+           płatności za zakupy (p = 0).</em>
+    HA: <em>Istnieje korelacja między osobami posiadającymi i nieposiadającymi kartę członkowską sklepu a formą 
+           płatności za zakupy (p =/= 0).</em>
+    
+    Statystyka testu Pearsona (p) wyniosła 5,22 przy wartości p-value mniejszej od przyjętego poziomu istotności alfa
+(0,03 < 0,05) dla osoby nie będącej posiadaczem karty lojalnosciowej sklepu i większej dla osoby, która tę kartę ma
+(0,83 > 0,05). W związku z tym dla osoby nie posiadającej karty, istnieją istotne przesłanki, aby odrzucić H0, a co 
+za tym idzie - jej korelacja z formą płatności istnieje i jest dodatnia (p > 0), natomiast dla osoby posiadającej taką
+kartę nie ma podstaw do odrzucenia H0, zatem jej korelacja z formą płatności nie występuje.
+</pre>
+
+#### PODSUMOWANIE
+
+<pre>
+Przeprowadzone testy wykazały następujące zależności:
+  - Ocena klientów ('Rating') nigdy nie była niższa od oceny 4, natomiast najczęściej przyznawana ocena przez
+    klientów to 6. Ponadto prawdopodobnym jest, że przyznawane oceny nie są zależne ani od miasta, w jakim się
+    znajduje dany sklep Biedronka, ani od faktu, czy klient posiada kartę lojalnościową czy też nie.
+  - Ilość zakupionych produktów 'Quantity' przez przeciętnego, badanego klienta w trzech pierwszych miesiącach 2019
+    wynosiła więcej niż 5. Ponadto środkowa liczba oznaczająca ilość zakupionych produktów przez kobiety była w tym
+    okresie wyższa od mediany zakupionych produktów przez mężczyzn.
+  - Istnieje pewna zależność pomiędzy osobami nieposiadającymi kartę członkowską sklepu a formą, jaką wybierają
+    przy płatności za zakupy. Można się spodziewać, że takie osoby częściej wybiorą płatność poprzez portfel
+    elektroniczny niż kartą kredytową czy gotówką. Dodatkowo płatność kartą kredytową wybiorą najmniej chętnie.
+    Nie istnieją jednak przesłanki, aby móc zakładać, że osoby posiadające kartę członkowską preferują daną formę
+    płatności za zakupy.
+</pre>
+    
