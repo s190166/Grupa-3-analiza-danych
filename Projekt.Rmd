@@ -607,7 +607,7 @@ results4 %>%
     font_size = 14)
 
 ggplot(data_filled, aes(sample = Rating)) +
-  stat_qq(color = "#007ea7") +
+  stat_qq(color = "#0077b6") +
   stat_qq_line() +
   theme_minimal() +
   labs(title = "Wykres Q-Q dla zmiennej 'Rating'",
@@ -657,7 +657,7 @@ results6 %>%
 
 
 ggplot(data_filled, aes(sample = Quantity)) +
-  stat_qq(color = "#218380") +
+  stat_qq(color = "#2a9d8f") +
   stat_qq_line() +
   theme_minimal() +
   labs(title = "Wykres Q-Q dla zmiennej 'Quantity'",
