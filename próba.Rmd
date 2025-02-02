@@ -105,6 +105,9 @@ są rozmieszczone w sposób losowy, bez wyraźnych wzorców grupowania się w ok
 
 ```{r Wykres UpSet dla współwystępowania NA, echo=FALSE}
 gg_miss_var(data)
+
+gg_miss_upset(data, 
+              nsets = 3)
 ```
 
 <pre>
@@ -415,7 +418,7 @@ zmiennej 'Branch'.
 i można zastosować dla nich prostą imputację danych.
 </pre>
 
-### PODSUMOWANIE
+### PODSUMOWANIE ANALIZY BRAKUJĄCYCH OBSERWACJI
 
 <pre>
     Z powyższej analizy dotyczącej obserwacji brakujących w zbiorze danych dotyczącym sprzedaży w trzech sklepach
@@ -567,7 +570,7 @@ datatable(results2, options = list(dom = 't', paging = FALSE), rownames = FALSE)
 W zbiorze tym nie występują również duplikaty wierszów. 
 </pre>
 
-### PODSUMOWANIE
+### PODSUMOWANIE WALIDACJI DANYCH
 
 <pre>
     Z powyższej analizy dotyczącej identyfikacji nieprawidłowości w zbiorze danych dotyczącym sprzedaży w trzech 
@@ -1203,7 +1206,7 @@ ggplot(data, aes(x = Product.line, y = gross.income, fill = Product.line)) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
 
-# 8. Wnioskowanie statystyczne.
+# 9. Wnioskowanie statystyczne.
 
 <pre>
     Końcowa analiza zbioru danych dotyczącego sprzedaży w trzech sklepach Biedronka polega na przeprowadzeniu
@@ -1489,7 +1492,7 @@ za tym idzie - jej korelacja z formą płatności istnieje i jest dodatnia (p > 
 kartę nie ma podstaw do odrzucenia H0, zatem jej korelacja z formą płatności nie występuje.
 </pre>
 
-# 9. PODSUMOWANIE
+### PODSUMOWANIE CZĘŚCI TESTOWEJ
 
 <pre>
 Przeprowadzone testy wykazały następujące zależności:
