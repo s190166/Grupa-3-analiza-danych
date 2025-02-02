@@ -578,12 +578,10 @@ danych (<em>Data Cleansing</em>).
 # 4. Czyszczenie danych z NA
 
 <pre>
-
 Poniższy kod uzupełnia brakujące wartości w kolumnach na podstawie zależności i imputacji. Kolumna `City` została uzupełniona na podstawie jednoznacznej relacji z kolumną `Branch`. Braki w kolumnie `gross income` zastąpiono wartościami z kolumny `Tax 5%`, ponieważ dane te były tożsame. Braki w kolumnie `Rating` uzupełniono za pomocą imputacji z pakietu `mice`, wykorzystując metodę dopasowania predyktywnego (`pmm`).
-
 </pre>
 
-```{r przygotowanie środowiska do trzyszczenia danych, include=FALSE}
+```{r przygotowanie środowiska do trzyszczenia danych}
 
 # Mapowanie relacji między Branch a City
 branch_to_city <- data %>%
@@ -628,7 +626,7 @@ sum(is.na(data))
 Wartości odstające to obserwacje znacząco odbiegające od reszty danych, które mogą zniekształcać wyniki analiz statystycznych. Aby zminimalizować ich wpływ, przeprowadzono analizę zmiennych `Unit.price`, `Total`, `Quantity` i `Rating`.
 </pre>
 
-```{r wartości odstające, include=FALSE}
+```{r wartości odstające}
 # Rysowanie boxplotów dla wybranych zmiennych
 b1 <- ggplot(data, aes(y = Unit.price)) +
   geom_boxplot() +
@@ -653,7 +651,6 @@ h2 <- ggplot(data, aes(x = Total)) +
 
 # Wyświetlenie wykresów w siatce 2x2
 grid.arrange(b1, b2, h1, h2, nrow = 2)
-
 replace_outliers_with_median <- function(column) {
   Q1 <- quantile(column, 0.25, na.rm = TRUE)
   Q3 <- quantile(column, 0.75, na.rm = TRUE)
@@ -1094,7 +1091,7 @@ points(
   gałęzi, co sugeruje względnie równomierne rozproszenie danych.
 </pre>
 
-```{r porownanie_total_branch, include=FALSE}
+```{r porownanie_total_branch}
 # Porównanie Total wg gałęzi
 ggplot(data, aes(x = Branch, y = Total, fill = Branch)) +
   geom_boxplot() +
@@ -1111,7 +1108,7 @@ ggplot(data, aes(x = Branch, y = Total, fill = Branch)) +
   ale ich rozkład jest zbliżony do członków Member (czerwony kolor).
 </pre>
 
-```{r rozklad_gross_income_customer_type, include=FALSE}
+```{r rozklad_gross_income_customer_type}
 ggplot(data, aes(x = gross.income, fill = Customer.type)) +
   geom_histogram(bins = 20, alpha = 0.7, position = "identity") +
   labs(title = "Rozkład 'Gross Income' wg typu klienta", x = "Gross Income", y = "Liczba transakcji")
@@ -1130,7 +1127,7 @@ ggplot(data, aes(x = gross.income, fill = Customer.type)) +
   bardzo wysokie oceny, a mężczyźni częściej oceniają w średnim zakresie.
 </pre>
 
-```{r rozklad_rating_gender, include=FALSE}
+```{r rozklad_rating_gender}
 ggplot(data, aes(x = Rating, fill = Gender)) +
   geom_density(alpha = 0.5) +
   labs(title = "Rozkład ocen wg płci", x = "Ocena", y = "Gęstość")
@@ -1146,7 +1143,7 @@ ggplot(data, aes(x = Rating, fill = Gender)) +
   Ogólnie dochody obu płci mają porównywalną strukturę.
 </pre>
 
-```{r porownanie_gross_income_gender, include=FALSE}
+```{r porownanie_gross_income_gender}
 ggplot(data, aes(x = Gender, y = gross.income, fill = Gender)) +
   geom_boxplot() +
   labs(title = "Gross Income wg płci", x = "Płeć", y = "Gross Income")
@@ -1163,7 +1160,7 @@ ggplot(data, aes(x = Gender, y = gross.income, fill = Gender)) +
   Ogólnie rzecz biorąc, typ klienta nie wydaje się mieć dużego wpływu na poziom wydatków.
 </pre>
 
-```{r porownanie_customer_type_total, include=FALSE}
+```{r porownanie_customer_type_total}
 ggplot(data, aes(x = Customer.type, y = Total, fill = Customer.type)) +
   geom_boxplot() +
   labs(title = "Total wg typu klienta", x = "Typ klienta", y = "Total")
@@ -1179,7 +1176,7 @@ ggplot(data, aes(x = Customer.type, y = Total, fill = Customer.type)) +
   Ogólnie rzecz biorąc, nie widać znaczących różnic w ocenach między oddziałami.
 </pre>
 
-```{r porownanie_rating_branch, include=FALSE}
+```{r porownanie_rating_branch}
 ggplot(data, aes(x = Branch, y = Rating, fill = Branch)) +
   geom_boxplot() +
   labs(title = "Porównanie 'Rating' wg gałęzi", x = "Gałęzie", y = "Rating")
@@ -1199,7 +1196,7 @@ ggplot(data, aes(x = Branch, y = Rating, fill = Branch)) +
   żadna z nich nie wyróżnia się wyraźnie pod względem dochodu brutto.
 </pre>
 
-```{r porownanie_gross_income_product_line, include=FALSE}
+```{r porownanie_gross_income_product_line}
 ggplot(data, aes(x = Product.line, y = gross.income, fill = Product.line)) +
   geom_boxplot() +
   labs(title = "Porównanie 'Gross Income' wg kategorii produktów", x = "Kategoria produktu", y = "Gross Income") +
