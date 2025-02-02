@@ -4,20 +4,12 @@ author: "Zuzanna Łomża, Zuzanna Łebed, Michał Książek"
 date: "2024-12-05"
 output:  rmdformats::readthedown
 ---
-
-<style>
-    pre, code  {
-    font-family: 'Arial', monospace;
-    font-size: 14px;
-  }
-  .output {
-    font-family: 'Arial', monospace;
-    font-size: 14px;
-}
-</style>
+```{r pakiet markdown, echo=FALSE}
+install.packages("papeR")
+```
 
 ```{r setup1, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
+knitr::opts_chunk$set(echo = FALSE, message = FALSE)
 data <- read.csv("supermarket.csv")
 library(rmdformats)
 library(naniar)
@@ -32,9 +24,21 @@ library(lubridate)
 library(ggstatsplot)
 library(kableExtra)
 library(tidyr)
+library(plotly)
+library(devtools)
 ```
+<style>
+    pre, code  {
+    font-family: 'Arial', monospace;
+    font-size: 14px;
+  }
+  .output {
+    font-family: 'Arial', monospace;
+    font-size: 14px;
+}
+</style>
 
-## Informacje wstępne.
+# 1. Informacje wstępne.
 
 <pre>
     Zbiór danych poddany analizie dotyczy historycznych sprzedaży supermarketów Biedronka, które zostały
@@ -65,7 +69,7 @@ Zmienne uwzglednione w zbiorze to:
     (w skali od 1 do 10).
 </pre>
 
-## *1. Analiza brakujacych obserwacji.*
+# 2. Analiza brakujacych obserwacji.
 
 <pre>
 Zbiór danych zawiera `r n_miss(data)` brakujących wartości.
@@ -73,7 +77,7 @@ Zbiór danych zawiera `r n_miss(data)` brakujących wartości.
 
 ### Tabela podsumowująca braki
 
-```{r Tabela podsumowująca liczbę NA, echo=FALSE}
+```{r Tabela_podsumowująca_liczbę_NA, echo=FALSE, paged.print=TRUE, results='asis'}
 datatable<- data
 datatable(miss_var_summary(data))
 ```
@@ -173,7 +177,7 @@ między brakami a zmiennymi. Wybrane zmienne do przekodowania to:
 
 ##### Etap II. Przekodwoanie wskazanych zmiennych jakościowych na ilościowe.
 
-```{r Przekodowanie zmiennych jakościowych na ilościowe, include=FALSE}
+```{r Przekodowanie zmiennych jakościowych na ilościowe, echo=FALSE}
 data2 <- data.frame(data, row.names = TRUE)
 
 data2$Branch <- ifelse((data2$Branch) == "A", 1, 
@@ -226,7 +230,7 @@ a 0 - jej obecność, obliczono wartość korelacji między danymi wskaźnikami 
 innych zmiennych.
 </pre>
 
-```{r Wykluczanie zmiennej gross.margin.percentage, include=FALSE}
+```{r Wykluczanie zmiennej gross.margin.percentage, echinclude=FALSE}
 data_cor <- data2 %>% mutate(gross.margin.percentage = NULL)
 
 NA_cor2 <- cor_mat(data_cor)
@@ -427,7 +431,7 @@ lub mediany w uzupełnieniu zmiennej 'Rating', bądź uzupełnianiu jej poprzez 
 pakietu "mice" (<em>Multiple Imputation by Chained Equations</em>).
 </pre>
 
-## *2. Walidacja danych.*
+# 3. Walidacja danych.
 
 <pre>
     W celu sprawdzenia, czy wartości w zbiorze danych spełniają określone krytera dla zmiennych, których poprawne
@@ -570,7 +574,7 @@ sklepach Biedronka wynika, że wartości zmiennych są poprawne i nie wymagają 
 danych (<em>Data Cleansing</em>).
 </pre>
 
-## *3. Czyszczenie danych z NA*
+# 4. Czyszczenie danych z NA
 
 <pre>
 
@@ -625,7 +629,7 @@ sum(is.na(data))
 
 ```
 
-## *4. Wartości Odstające*
+# 5. Wartości Odstające
 
 <pre>
 Wartości odstające to obserwacje znacząco odbiegające od reszty danych, które mogą zniekształcać wyniki analiz statystycznych. Aby zminimalizować ich wpływ, przeprowadzono analizę zmiennych `Unit.price`, `Total`, `Quantity` i `Rating`.
@@ -683,7 +687,8 @@ Obecność takich wartości odstających może mieć istotny wpływ na wyniki an
 Działanie to pozwala na bardziej reprezentatywną ocenę danych, co może mieć kluczowe znaczenie w kontekście analizy zachowań klientów, segmentacji rynku lub przewidywania przyszłych trendów sprzedażowych.
 </pre>
 
-```{r setup4, include=FALSE}
+```{r setup4, echo=FALSE, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
 # Wybór kolumn numerycznych
 numeric_columns <- c("Unit.price", "Total", "Quantity", "Rating")
 
@@ -748,7 +753,7 @@ print(comparison)
 Zastąpienie wartości odstających w danych pozwala na uzyskanie bardziej reprezentatywnych wyników, eliminując wpływ skrajnych wartości, które mogą zniekształcać analizy. Dzięki temu modelowanie i wnioskowanie staje się bardziej precyzyjne, a interpretacja danych jest łatwiejsza i bardziej wiarygodna. Takie podejście pomaga lepiej uchwycić rzeczywiste zależności w analizowanej próbie.
 </pre>
 
-## *5. Statystyki opisowe*
+# 6. Statystyki opisowe
 
 </style>
 
@@ -761,7 +766,7 @@ library(moments)
 library(ggplot2)
 ```
 
-# Statystyki opisowe
+# 7. Statystyki opisowe
 
 ```{r Statystyki_opisowe}
 statystyki <- function(x) {
@@ -783,7 +788,7 @@ statystyki <- function(x) {
 }
 ```
 
-## Statystyki dla 'Total'wg płci
+### Statystyki dla 'Total'wg płci
 
 <pre>
   Tabela przedstawia statystyki zmiennej Total dla kobiet i mężczyzn. 
@@ -807,7 +812,7 @@ statystyki_total <- data %>%
   unnest(cols = c(Total))
 ```
 
-## Statystyki dla 'gross income' wg płci
+### Statystyki dla 'gross income' wg płci
 
 <pre>
   Tabela przedstawia statystyki dotyczące Gross Income w podziale na płeć.
@@ -831,7 +836,7 @@ statystyki_income <- data %>%
   unnest(cols = c(gross.income))
 ```
 
-## Statystyki dla 'Rating' wg typu klienta
+### Statystyki dla 'Rating' wg typu klienta
 
 <pre>
   Tabela przedstawia statystyki dotyczące ocen (Rating) wystawianych przez klientów w podziale
@@ -855,7 +860,7 @@ statystyki_rating <- data %>%
   unnest(cols = c(Rating))
 ```
 
-## Statystyk dla 'Unit price' wg kategorii produktów
+### Statystyk dla 'Unit price' wg kategorii produktów
 
 <pre>
   Tabela przedstawia statystyki dotyczące Unit Price (ceny jednostkowej) w podziale na
@@ -930,13 +935,14 @@ knitr::kable(tabela_unit_price,
              col.names = c("Statystyka", unique(data$Product.line)))
 ```
 
-## *6. Wykresy*
+# 8. Wykresy
 
 <pre>
 Wykres kołowy Na wykresie kołowym prezentuje preferencje metody płatności wezględu na płeć. Mężni wolą płacić karta debetową, kobiety preferują płatności gotówką.
 </pre>
 
 ```{r setup7, include=FALSE }
+knitr::opts_chunk$set(echo = FALSE)
 # Podział danych według płci i metody płatności
 gender_payment_counts <- data %>%
   group_by(Gender, Payment) %>%
@@ -973,7 +979,7 @@ library(gridExtra)
 grid.arrange(plot_female, plot_male, ncol = 2)
 ```
 
-## Wykres Histogram i pudełkowy
+### Wykres Histogram i pudełkowy
 
 <pre>
     Histogram przedstawia rozkład ocen w poszczególnych miastach, pokazując, jak często występują określone wartości ocen. Dzięki niemu możemy łatwo zauważyć ogólny kształt rozkładu, jego skośność oraz ewentualne wartości odstające. Z kolei wykres pudełkowy (boxplot) pozwala lepiej zobaczyć rozkład danych pod kątem ich mediany, kwartylów oraz wartości odstających. Środkowa linia w pudełku reprezentuje medianę ocen, a granice pudełka pokazują zakres między pierwszym a trzecim kwartylem. Wąsy wskazują wartości minimalne i maksymalne, pomijając odstające obserwacje, które są zaznaczone jako osobne punkty. Wykres pudełkowy ułatwia szybkie porównanie mediany ocen między różnymi miastami oraz identyfikację ewentualnych różnic w rozproszeniu danych.
@@ -1012,7 +1018,7 @@ ggplot(data, aes(x = City, y = Rating, fill = City)) +
   scale_fill_brewer(palette = "Pastel1")
 ```
 
-## Wykres słópkowy
+### Wykres słópkowy
 
 <pre>
     Wykres słupkowy przedstawia średnią sprzedaż dla każdej linii produktów, co pozwala na szybkie porównanie wyników poszczególnych kategorii. Słupki mają kolor niebieski, a ich wysokość odpowiada wartości średniej sprzedaży w danej linii produktów.
@@ -1042,7 +1048,7 @@ barplot(
 mtext("Linia produktów", side = 1, line = 7, cex = 1.2)
 ```
 
-## Wykres heatmapa
+### Wykres heatmapa
 
 <pre>
     Wykres typu heatmapa przedstawia średnie oceny (Rating) w zależności od miasta i płci. Kolor kafelków odzwierciedla wartość średniej oceny – jaśniejsze odcienie oznaczają niższe wartości, a ciemniejsze wyższe
@@ -1071,7 +1077,7 @@ ggplot(heatmap_data, aes(x = Gender, y = City, fill = Average_Rating)) +
 
 ```
 
-## Wykres linowy
+### Wykres linowy
 
 <pre>
     Wykres liniowy przedstawia trend sprzedaży w czasie, umożliwiając obserwację zmian w całkowitej sprzedaży na przestrzeni dni. Linia łączy punkty reprezentujące dzienne sumy sprzedaży, co pozwala na łatwe dostrzeżenie wzorców, takich jak okresowe wzrosty i spadki.
@@ -1106,7 +1112,7 @@ points(
 )
 ```
 
-## Porównanie 'Total' i 'Branch'
+### Porównanie 'Total' i 'Branch'
 
 <pre>
   Wykres pudełkowy przedstawia porównanie wartości 'Total' dla trzech gałęzi (A, B, C). Każda
@@ -1122,7 +1128,7 @@ ggplot(data, aes(x = Branch, y = Total, fill = Branch)) +
   labs(title = "Porównanie 'Total' wg gałęzi", x = "Gałęzie", y = "Total")
 ```
 
-## Rozkład 'gross income' i 'customer type'
+### Rozkład 'gross income' i 'customer type'
 
 <pre>
   Większość transakcji generuje niskie wartości Gross Income (głównie poniżej 10), co widać po
@@ -1138,7 +1144,7 @@ ggplot(data, aes(x = gross.income, fill = Customer.type)) +
   labs(title = "Rozkład 'Gross Income' wg typu klienta", x = "Gross Income", y = "Liczba transakcji")
 ```
 
-## Rozkład 'rating' wg płci
+### Rozkład 'rating' wg płci
 
 <pre>
   Wykres przedstawia rozkład ocen w zależności od płci (Female – czerwony, Male – turkusowy).
@@ -1157,7 +1163,7 @@ ggplot(data, aes(x = Rating, fill = Gender)) +
   labs(title = "Rozkład ocen wg płci", x = "Ocena", y = "Gęstość")
 ```
 
-## Porównanie 'gross income' i płci
+### Porównanie 'gross income' i płci
 
 <pre>
   Wykres przedstawia porównanie dochodów brutto ze względu na płeć. Mediana dochodów kobiet i
@@ -1173,7 +1179,7 @@ ggplot(data, aes(x = Gender, y = gross.income, fill = Gender)) +
   labs(title = "Gross Income wg płci", x = "Płeć", y = "Gross Income")
 ```
 
-## Porównanie 'customer type' i 'total'
+### Porównanie 'customer type' i 'total'
 
 <pre>
   Wykres przedstawia porównanie całkowitej wartości zakupów w zależności od typu klienta.
@@ -1190,7 +1196,7 @@ ggplot(data, aes(x = Customer.type, y = Total, fill = Customer.type)) +
   labs(title = "Total wg typu klienta", x = "Typ klienta", y = "Total")
 ```
 
-## Porównanie 'rating' i 'branch'
+### Porównanie 'rating' i 'branch'
 
 <pre>
   Wykres przedstawia porównanie ocen (Rating) dla trzech różnych gałęzi (A, B, C). Mediany ocen
@@ -1206,7 +1212,7 @@ ggplot(data, aes(x = Branch, y = Rating, fill = Branch)) +
   labs(title = "Porównanie 'Rating' wg gałęzi", x = "Gałęzie", y = "Rating")
 ```
 
-## Porównanie 'gross income' i 'product line'
+### Porównanie 'gross income' i 'product line'
 
 <pre>
   Wykres przedstawia porównanie dochodu brutto ("Gross Income") w różnych kategoriach
@@ -1227,7 +1233,7 @@ ggplot(data, aes(x = Product.line, y = gross.income, fill = Product.line)) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
 
-## *7. Wnioskowanie statystyczne.*
+# 8. Wnioskowanie statystyczne.
 
 <pre>
     Końcowa analiza zbioru danych dotyczącego sprzedaży w trzech sklepach Biedronka polega na przeprowadzeniu
@@ -1249,10 +1255,10 @@ zmienne kategoryczne to: 'City', 'Customer.type' i 'Payment'.
     HA: <em>Badana zmienna nie posiada rozkładu normalnego wartości.</em>
 </pre>
 
-#### *\> Zmienna 'Rating'*
+#### \* Zmienna 'Rating'\*
 
 ```{r Testy normalności - Rating, echo=FALSE}
-install.packages("kableExtra")
+if (!require("kableExtra")) install.packages("kableExtra")
 library("kableExtra")
 shapiro_test1 <- shapiro.test(data$Rating)
 results4 <- data.frame(
@@ -1267,16 +1273,9 @@ results4 %>%
     html_font = "Arial",
     font_size = 14)
 
-ggplot(data_filled, aes(sample = Rating)) +
-  stat_qq(color = "#0077b6") +
-  stat_qq_line() +
-  theme_minimal() +
-  labs(title = "Wykres Q-Q dla zmiennej 'Rating'",
-       x = "Teoretyczne kwantyle",
-       y = "Empiryczne kwantyle")
 ```
 
-#### *\> Zmienna 'Unit.price'*
+#### *Zmienna 'Unit.price'*
 
 ```{r Testy normalności - Unit.price, echo=FALSE}
 shapiro_test2 <- shapiro.test(data$Unit.price)
@@ -1293,13 +1292,7 @@ results5 %>%
     font_size = 14)
 
 
-ggplot(data_filled, aes(sample = Unit.price)) +
-  stat_qq(color = "#db5375") +
-  stat_qq_line() +
-  theme_minimal() +
-  labs(title = "Wykres Q-Q dla zmiennej 'Unit.price'",
-       x = "Teoretyczne kwantyle",
-       y = "Empiryczne kwantyle")
+
 ```
 
 #### *\> Zmienna 'Quantity'*
@@ -1319,13 +1312,6 @@ results6 %>%
     font_size = 14)
 
 
-ggplot(data_filled, aes(sample = Quantity)) +
-  stat_qq(color = "#2a9d8f") +
-  stat_qq_line() +
-  theme_minimal() +
-  labs(title = "Wykres Q-Q dla zmiennej 'Quantity'",
-       x = "Teoretyczne kwantyle",
-       y = "Empiryczne kwantyle")
 ```
 
 #### *\> Zmienna 'Total'*
@@ -1344,13 +1330,7 @@ results7 %>%
     html_font = "Arial",
     font_size = 14)
 
-ggplot(data_filled, aes(sample = Total)) +
-  stat_qq(color = "#f6bd60") +
-  stat_qq_line() +
-  theme_minimal() +
-  labs(title = "Wykres Q-Q dla zmiennej 'Total'",
-       x = "Teoretyczne kwantyle",
-       y = "Empiryczne kwantyle")
+
 ```
 
 <pre>
@@ -1508,8 +1488,7 @@ Dla nieparametrycznego testu zależności Manna-Whitneya zmiennej 'Gender' i 'Qu
                  mediany ilości towarów dla mężczyzn ("Male").</em>
         HA2: <em>Mediana ilości zakupionych produktów ('Quantity') przez kobiety ("Female") jest mniejsza od
                  mediany ilości towarów dla mężczyzn ("Male").</em>
-    
-    Statystyka testu wyniosła ok. 136 000 przy wartości p-value mniejszej od przyjętego poziomu istotności alfa 
+Statystyka testu wyniosła ok. 136 000 przy wartości p-value mniejszej od przyjętego poziomu istotności alfa 
 (0,2 < 0,05), co wskazuje, że istnieją istotne przesłanki, aby odrzucić H0 twierdzącą, że mediany ilości produktów 
 zakupionych przez klientów obu płci są sobie równe, a rozkład wartości ilości zakupionych produktów dla kobiet 
 i mężczyzn są identyczne. Ponadto stwierdzić można, że mediana ilości zakupionych towarów kobiet jest większa 
@@ -1519,11 +1498,16 @@ od mediany dla mężczyzn.
 #### *Test korelacji między zmiennymi 'Customer.type' i 'Payment'*
 
 ```{r Korelacja między Customer.type i Payment, echo=FALSE}
-ggbarstats(
+ggbetweenstats(
+  data=data,
+  y=Quantity,
+  x=Gender,
+  type="np")
 ```
 
 ```{r Korelacja między Customer.type i Payment, echo=FALSE}
-data=data,
+ggbarstats(
+  data=data,
   y=Customer.type,
   x=Payment,
   typr = "np")
@@ -1545,7 +1529,7 @@ za tym idzie - jej korelacja z formą płatności istnieje i jest dodatnia (p > 
 kartę nie ma podstaw do odrzucenia H0, zatem jej korelacja z formą płatności nie występuje.
 </pre>
 
-#### PODSUMOWANIE
+# 9. PODSUMOWANIE
 
 <pre>
 Przeprowadzone testy wykazały następujące zależności:
