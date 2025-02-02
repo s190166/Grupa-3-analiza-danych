@@ -7,7 +7,7 @@ output:  rmdformats::readthedown
 
 ```{r setup1, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-data <- read.csv("supermarket_new.csv")
+data <- read.csv("supermarket_new (1).csv")
 library(rmdformats)
 library(naniar)
 library(reshape2)
