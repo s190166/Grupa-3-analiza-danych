@@ -4,10 +4,6 @@ author: "Zuzanna Łomża, Zuzanna Łebed, Michał Książek"
 date: "2024-12-05"
 output:  rmdformats::readthedown
 ---
-```{r pakiet markdown, echo=FALSE}
-install.packages("papeR")
-```
-
 ```{r setup1, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE, message = FALSE)
 data <- read.csv("supermarket.csv")
@@ -27,16 +23,7 @@ library(tidyr)
 library(plotly)
 library(devtools)
 ```
-<style>
-    pre, code  {
-    font-family: 'Arial', monospace;
-    font-size: 14px;
-  }
-  .output {
-    font-family: 'Arial', monospace;
-    font-size: 14px;
-}
-</style>
+
 
 # 1. Informacje wstępne.
 
