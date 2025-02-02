@@ -4,20 +4,10 @@ author: "Zuzanna Łomża, Zuzanna Łebed, Michał Książek"
 date: "2024-12-05"
 output:  rmdformats::readthedown
 ---
-<style>
-    pre, code  {
-    font-family: 'Arial', monospace;
-    font-size: 14px;
-  }
-  .output {
-    font-family: 'Arial', monospace;
-    font-size: 14px;
-}
-</style>
 
 ```{r setup1, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE, message = FALSE)
-data <- read.csv("supermarket.csv")
+knitr::opts_chunk$set(echo = TRUE)
+data <- read.csv("supermarket_new.csv")
 library(rmdformats)
 library(naniar)
 library(reshape2)
@@ -33,50 +23,62 @@ library(kableExtra)
 library(tidyr)
 library(plotly)
 library(devtools)
+library(dplyr)
+library(gridExtra)
+library(knitr)
+library(moments)
 ```
-
+<style>
+    pre, code  {
+    font-family: 'Arial', monospace;
+    font-size: 14px;
+  }
+  .output {
+    font-family: 'Arial', monospace;
+    font-size: 14px;
+}
+</style>
 
 # 1. Informacje wstępne.
 
 <pre>
     Zbiór danych poddany analizie dotyczy historycznych sprzedaży supermarketów Biedronka, które zostały
-zarejestrowane w trzech różnych oddziałach przez trzy pierwsze miesiące 2019 roku (1.01.2019-30.03.2019). 
+zarejestrowane w trzech różnych oddziałach przez trzy pierwsze miesiące 2019 roku (1.01.2019 - 30.03.2019). 
 Zmienne uwzglednione w zbiorze to: 
   - 'Invoice.ID': Numer identyfikacyjny faktury sprzedaży wygenerowany komputerowo; 
   - 'Branch': Oddział supercentrum A, B i C; 
   - 'City': Lokalizacja supercentrów w miastach Naypyitaw, Yangon i Mandalay;
   - 'Customer.type': Typ klientów, zarejestrowanych jako "członek" ("Member") dla klientów korzystających 
-    z karty członkowskiej i "normalny" ("Normal") dla klientów nie posaidających karty członkowskiej; 
-  - 'Gender': Płeć klienta- kobieta ("Female") i mężczyzna ("Male"); 
+     z karty członkowskiej i "normalny" ("Normal") dla klientów nie posiadających karty członkowskiej; 
+  - 'Gender': Płeć klienta - kobieta ("Female") i mężczyzna ("Male"); 
   - 'Product.line': Ogólne grupy kategoryzacji przedmiotów - Akcesoria elektroniczne ("Electronic 
-    accessories"), Akcesoria modowe ("Fashion accessories"), Żywność i napoje ("Food and beverages"), 
-    Zdrowie i uroda ("Health and beauty"), Dom i styl życia ("Home and lifestyle"), Sport i podróże 
-    ("Sports and travel"); 
+     accessories"), Akcesoria modowe ("Fashion accessories"), Żywność i napoje ("Food and beverages"), 
+     Zdrowie i uroda ("Health and beauty"), Dom i styl życia ("Home and lifestyle"), Sport i podróże 
+     ("Sports and travel"); 
   - 'Unit.price': Cena każdego produktu w $; 
   - 'Quantity': Liczba produktów zakupionych przez klienta; 
   - 'Tax.5.': Opłata podatkowa w wysokości 5% dla klienta dokonującego zakupu;
   - 'Total': Całkowita cena z 5% podatkiem;
   - 'Date': Data zakupu (rekord dostępny od stycznia 2019 r. do marca 2019 r.); 
   - 'Time': Czas zakupu (od 10:00 do 21:00); 
-  - 'Payment': Płatność wykorzystana przez klienta do zakupu (dostępne są 3 metody - gotówka ("Cash"), 
-    karta kredytowa ("Credit card") i portfel elektroniczny ("Ewallet"); 
+  - 'Payment': Forma płatności wykorzystana przez klienta do zakupu (dostępne są 3 metody - gotówka 
+     ("Cash"), karta kredytowa ("Credit card") i portfel elektroniczny ("Ewallet"); 
   - 'cogs': Koszt sprzedanych towarów; 
   - 'gross.margin.percentage': Procentowa marża brutto; 
   - 'gross.income': Dochód brutto; 
   - 'Rating': Ocena stratyfikacji klientów dotycząca ich ogólnego doświadczenia zakupowego 
-    (w skali od 1 do 10).
+     (w skali od 1 do 10).
 </pre>
 
 # 2. Analiza brakujacych obserwacji.
 
 <pre>
-Zbiór danych zawiera `r n_miss(data)` brakujących wartości.
+Ze wstępnej analizy wynika, że zbiór danych zawiera `r n_miss(data)` brakujących wartości.
 </pre>
 
-### Tabela podsumowująca braki
+## Tabela podsumowująca braki
 
 ```{r Tabela_podsumowująca_liczbę_NA, echo=FALSE, paged.print=TRUE, results='asis'}
-datatable<- data
 datatable(miss_var_summary(data))
 ```
 
@@ -86,7 +88,7 @@ datatable(miss_var_summary(data))
 10% wszystkich obserwacji dla tej zmiennej.
 </pre>
 
-### Wizualizacja lokalizacji braków
+## Wizualizacja lokalizacji braków
 
 ```{r Shadow map, echo=FALSE}
 vis_miss(data, sort = TRUE)
@@ -98,10 +100,11 @@ są rozmieszczone w sposób losowy, bez wyraźnych wzorców grupowania się w ok
     Ponadto braki te stanowią 2,9% wszystkich obserwacji, co wskazuje na ich stosunkowo niewielką liczbę.
 </pre>
 
-### Współwystępowanie braków
+## Współwystępowanie braków
 
 ```{r Wykres UpSet dla współwystępowania NA, echo=FALSE}
-gg_miss_var(data)
+gg_miss_upset(data, 
+              nsets = 3)
 ```
 
 <pre>
@@ -116,11 +119,11 @@ zmiennymi. Wynika z niego, że:
     w innych rekordach.
     Podsumowując, w analizowanym zbiorze braki najczęściej występują osobno w poszczególnych kolumnach
 (`r 116+113+70` przypadków NA), ale istnieje określona liczba przypadków, w których braki te współwystępują w dwóch 
-(`r 20+16+13` przypadków NA) lub trzech kolumnach (1 przypadek NA). Sugerować to może, że występuje pewna zależność 
+(`r 20+16+13` przypadków NA) lub trzech kolumnach (1 przypadek NA). Sugerować to może, że istnieje pewna zależność 
 między brakami w analizowanych zmiennych, jednak przez wzgląd na ich niewielką liczbę w stosunku do całkowitej
-liczby braków (`r (20+16+13+1)/400*100`%) – mogą być to braki, których występowanie odpowiadać może przypadkowi.
+liczby braków (`r (20+16+13+1)/400*100`%) – za ich występowanie może odpowiadać przypadek.
 
-    W celu zweryfikowania tej hipotezy, przeprowadza się dalszą analizę obserwacji brakujących.
+    W celu zweryfikowania tej hipotezy, przeprowadza się dalszą analizę brakujących obserwacji. 
 </pre>
 
 ```{r Mapa NA, echo=FALSE}
@@ -133,7 +136,7 @@ można, że w 651 wierszach w zbiorze nie występują żadne braki. W pozostały
 pojedyncze, podwójne oraz potrójne wartości NA, co zostało wykazane powyżej.
 </pre>
 
-### Macierz korelacji braków
+## Macierz korelacji braków
 
 <pre>
     Aby sprawdzić zależności pomiędzy brakującymi obserwacjami a wartościami pozostałych zmiennych, sporządza
@@ -152,7 +155,7 @@ czy w przypadku silnych korelacji ich występowanie zależy od innych zmiennych 
   IV. Wygenerowanie <strong>macierzy korelacji braków</strong>.</span>
 </pre>
 
-##### Etap I. Sprawdzenie struktury danych w zbiorze.
+#### Etap I. Sprawdzenie struktury danych w zbiorze.
 
 ```{r Sprawdzenie struktury danych w zbiorze, echo=FALSE}
 datatable(data.frame(class = sapply(data, class)))
@@ -173,9 +176,9 @@ między brakami a zmiennymi. Wybrane zmienne do przekodowania to:
   - 'Payment'.
 </pre>
 
-##### Etap II. Przekodwoanie wskazanych zmiennych jakościowych na ilościowe.
+#### Etap II. Przekodwoanie wskazanych zmiennych jakościowych na ilościowe.
 
-```{r Przekodowanie zmiennych jakościowych na ilościowe, echo=FALSE}
+```{r Przekodowanie zmiennych jakościowych na ilościowe, echinclude=FALSE}
 data2 <- data.frame(data, row.names = TRUE)
 
 data2$Branch <- ifelse((data2$Branch) == "A", 1, 
@@ -216,7 +219,7 @@ w celu wydobycia z niej możliwie istotnych informacji (np. konkretny wzorzec wy
 zmienną 'Invoice.ID' do nazw wierszy, przez wzgląd na jej niewielką wartość informacyjną.
 </pre>
 
-##### Etap III. Obliczenie korelacji między brakami a zmiennymi ze zbioru.
+#### Etap III. Obliczenie korelacji między brakami a zmiennymi ze zbioru.
 
 ```{r Korelacja braków, echo=FALSE}
 NA_cor <- cor_mat(data2)
@@ -240,36 +243,37 @@ zmiennej w każdym kolejnym wierszu, wynikiem czego korelacja skutkowała niepra
 względu zmienna ta została wykluczona z analizy korelacji, w celach dalszej wizualizacji korelacji braków.
 </pre>
 
-##### Etap IV. Wygenerowanie <em>macierzy korelacji braków</em>.
+#### Etap IV. Wygenerowanie <em>macierzy korelacji braków</em>.
 
 ```{r Macierz korelacji braków, echo=FALSE}
 ggcorrplot(NA_cor2)
 ```
 
 <pre>
-    Macierz korelacji braków przedstawiona na wizualizacji wskazuje na istnienie bardzo silnej, dodatniej korelacji między 
+    Macierz korelacji braków przedstawiona na wizualizacji wskazuje na istnienie bardzo silnej, dodatniej korelacji między
 wartościami brakującymi a wartościami zmiennych: 'Total', 'Tax.5.', 'cogs' oraz 'gross.income' i silnej, dodatniej korelacji
 wartości zmiennych: 'cogs', 'Unit.price', 'Quantity' i 'gross.income'. Ponadto zaobserwowano istotną korelację
 dodatnią dla zmiennych 'Branch' i 'City'.
-    Wyniki te oznaczają, że jeśli jedna ze wskazanych zmiennych posiada brakującą wartość, istnieje duże 
-prawdopodobieństwo, że pozostałe zmienne również będą zawierać brakujące obserwacje. 
-    To z kolei sugeruje, że w przypadku zmiennych o charakterze finansowym, takie braki mogą być losowe (MAR), 
-zależne od innych wartości, lub jeśli wartości były celowo pomijane - nielosowe (NMAR), niezależne od pozostałych 
+    Wyniki te oznaczają, że jeśli jedna ze wskazanych zmiennych posiada brakującą wartość, istnieje duże
+prawdopodobieństwo, że pozostałe zmienne również będą zawierać brakujące obserwacje.
+    To z kolei sugeruje, że w przypadku zmiennych o charakterze finansowym, takie braki mogą być losowe (MAR),
+zależne od innych wartości, lub jeśli wartości były celowo pomijane - nielosowe (NMAR), niezależne od pozostałych
 zmiennych. 
     Natomiast w przypadku zmiennych dotyczących lokalizacji sklepów, bardziej prawdopodobne jest, że braki
 w zmiennej 'City' mają charakter losowy (MAR). Wynika to z faktu, że konkretna lokalizacja jest powiązana
-z danym oddziałem sklepu ('Branch'), więc brak informacji o mieście wynikać może z wcześniej podanej informacji 
+z danym oddziałem sklepu ('Branch'), więc brak informacji o mieście wynikać może z wcześniej podanej informacji
 o oddziale.
-    Dodatkowo, braki w zmiennej 'Rating' nie wykazują żadnych zależności z innymi wartościami zmiennych. Na tej 
+    Dodatkowo, braki w zmiennej 'Rating' nie wykazują żadnych zależności z innymi wartościami zmiennych. Na tej
 podstawie można przypuszczać, że są to braki typu MCAR i zasadnym jest zastosowanie prostej imputacji danych.
 </pre>
 
-### Sprawdzenie zależności występowania braków w zmiennej 'gross.income'
+## Sprawdzenie zależności występowania braków w zmiennej 'gross.income'
 
 <pre>
     W celu sprawdzenia mechanizmu występowania wartości brakujących w zmiennej 'gross.income' oraz dobrania 
 do niej odpowiedniej formy imputacji, należy dokonać analizy wykazanych zależności z wartościami zmiennych 
 'Total', 'Tax.5.', 'cogs' oraz 'Quantity' i 'Unit.price'.
+
     Występowanie korelacji pomiędzy wymienionymi zmiennymi można wyjaśnić w prosty sposób, biorąc pod uwagę
 definicję wskazanych zmiennych i ich odzwiercielenie faktycznych wartości finansowych. 
 </pre>
@@ -310,7 +314,7 @@ Analiza wartości tych zmiennych wykazuje, że:
     równowartością różnicy całkowitej kwoty do zapłaty z podatkiem ('Total') i kosztów wytworzenia sprzedanych
     produktów ('cogs'):
     <em>'gross.income' = 'Total' - 'cogs'</em>
-Jeśli zatem <em>'Total' = 'cogs' + 'Tax.5.'</em>, to <em>'gross.income' = ('cogs' + 'Tax.5.') - 'cogs' = 'Tax.5.'</em>
+Jeśli zatem <em>'Total' = 'cogs' + 'Tax.5.'</em>, to <em>'gross.income' = ('cogs' + 'Tax.5.') - 'cogs' = 'Tax.5.'</em>.
 
     Tę zależność potwierdza poniższa wizualziacja.
 </pre>
@@ -342,11 +346,11 @@ odzwierciedla niemalże identyczny kształt rozkładu, z wysokimi i niskimi czę
     W związku z powyższą analizą dotyczącą zależności między brakami zmiennej 'gross.inocme' a zmiennymi 'Total', 
 'Tax.5.' oraz 'cogs' można wyciągnąć wniosek, że związek wartości 'gross.income' z wartościami pozostałych
 zmiennych wynika z finansowych powiązań między nimi. Dodatkowo, można przyjąć, że wartości zmiennej 
-'gross.income' odpowiadają wartościom zmiennej Tax.5. i zasadnym jest zastosowanie imputacji poprzez 
+'gross.income' odpowiadają wartościom zmiennej 'Tax.5.' i zasadnym jest zastosowanie imputacji poprzez 
 zastąpienie wartości brakujących obserwacjami pełnowartościowej zmiennej.
 </pre>
 
-### Sprawdzenie zależności występowania braków w 'City' od zmiennej 'Branch'
+## Sprawdzenie zależności występowania braków w 'City' od zmiennej 'Branch'
 
 ```{r Wykres braków w City według oddziału, echo=FALSE}
 
@@ -366,8 +370,8 @@ ggplot(data, aes(x = Branch, fill = City_info)) +
 <pre>
     Aby lepiej zrozumieć zależność między wartościami brakujacymi w zmiennej 'City' a wartościami zmiennej 'Branch'
 sporządzono powyższy wykres słupkowy. Wskazuje on, że braki w każdym z oddziałów ('Branch') są rozłożone
-równomiernie (wynoszą ok. `r mean(3.5, 2.8, 3.7)`%), z niewielkimi odchyleniami (ok. `r round(sd(c(3.5, 2.8, 3.7)), 2)`p. %). Może to świadczyć o tym, że braki 
-nie są zależne od konkretnych oddziałów.
+równomiernie (wynoszą ok. `r mean(3.5, 2.8, 3.7)`%), z niewielkimi odchyleniami (ok. `r round(sd(c(3.5, 2.8, 3.7)), 2)` p. %). Może to świadczyć o tym, że braki 
+te nie są zależne od konkretnych oddziałów.
 </pre>
 
 ```{r Test chi^2 dla City i Branch, echo=FALSE}
@@ -400,10 +404,10 @@ chi2_City_NA %>%
 
 <pre>
     W ramach sprawdzenia zależności braków zmiennej 'City' od zmiennej 'Branch' wykonano nieparametryczny test 
-zależności chi2. Hipotezy dla tesu brzmiały następująco:
+zależności chi2. Hipotezy dla tesu brzmią następująco:
 
-    H0: <em>Braki w 'City' są niezależne od zmiennej 'Branch'.</em>
-    HA: <em>Braki w 'City' są zależne od zmiennej 'Branch'.</em>
+    H0: <em>Braki w zmiennej 'City' są niezależne od zmiennej 'Branch'.</em>
+    HA: <em>Braki w zmiennej 'City' są zależne od zmiennej 'Branch'.</em>
     
     Statystyka chi2 równa 1,54 przy wartości p-value (0,46) większej od przyjętego poziomu istotności (0,05) wykazała, 
 że nie ma podstaw do odrzucenia H0 mówiącego o niezależności braków obserwacji zmiennej 'City' od wartości 
@@ -412,7 +416,7 @@ zmiennej 'Branch'.
 i można zastosować dla nich prostą imputację danych.
 </pre>
 
-### PODSUMOWANIE
+## PODSUMOWANIE ANALIZY BRAKUJĄCYCH OBSERWACJI
 
 <pre>
     Z powyższej analizy dotyczącej obserwacji brakujących w zbiorze danych dotyczącym sprzedaży w trzech sklepach
@@ -420,7 +424,7 @@ Biedronka wynika, że wartości NA występują w trzech zmiennych: 'gross.income
 (150 przypadków braków) oraz 'City' (100 przypadków braków).
 
     Przedstawione wizualizacje oraz testy wykazały, że braki te najprawdopodobniej są losowe (MAR) lub kompletnie
-losowe (MCAR) w przypadku zmiennej finansowej 'gross.income' oraz zmiennej dotyczącej lokalzacji 'City' i kompletnie
+losowe (MCAR) w przypadku zmiennej finansowej 'gross.income' oraz zmiennej dotyczącej lokalzacji 'City', i kompletnie
 losowe (MCAR) w przypadku zmiennej 'Rating'. 
     W zwiazku z tym, zaleca się stosowanie prostej imputacji danych polegającej na uzupełnieniu brakujących wartości 
 w zmiennej 'gross.income' wartościami ze zmiennej 'Tax.5.', przypisaniu brakującym wartościom zmiennej 'City'
@@ -433,7 +437,7 @@ pakietu "mice" (<em>Multiple Imputation by Chained Equations</em>).
 
 <pre>
     W celu sprawdzenia, czy wartości w zbiorze danych spełniają określone krytera dla zmiennych, których poprawne
-zachowanie jest niezbędne do dalszej analizy, obejmującej m.in. imputację, wizualizację, wnioskowanie statatystyczne
+zachowanie jest niezbędne do dalszej analizy obejmującej m.in. imputację, wizualizację, wnioskowanie statatystyczne
 i testowanie, stosuje się <strong>walidację danych</strong>. 
     Proces ten polega na definiowaniu reguł, jakie muszą spełnić zmienne w zbiorze, a następnie sprawdzenie, czy
 występują w nim jakiekolwiek nieprawidłowości w postaci "brudnych" danych. Jeżeli analiza wykaże obecność takich
@@ -442,7 +446,7 @@ do prawidłowego formatu) lub usunięcie informacji, które są nieistotne dla b
 programu i proces dalszej analizy. 
 </pre>
 
-### Sprawdzanie ppoprawności danych zależnych
+## Sprawdzanie poprawności danych zależnych
 
 ```{r Dodawanie zmiennych pomocniczych, include=FALSE}
 check_cogs <- data$Quantity * data$Unit.price %>%
@@ -472,7 +476,7 @@ rules <- validator(if (City == "Yangon") Branch == "A",
 
 <pre>
     Dla analizowanego zbioru danych zdefiniowano reguły walidacyjne, dla wybranych zmiennych zależnych
-jakościowych i ilościowych, których nieprawidłowości mogłyby mieć istotny wpływ w dalszej analizie.
+jakościowych i ilościowych, których nieprawidłowości mogłyby mieć istotny wpływ na dalszą analizę.
 
 Określone reguły przedstawia się następująco:
 </pre>
@@ -510,7 +514,7 @@ cf <- confront(data, rules) %>%
 "brudnych" wartości w zmiennych zależnych o określonych regułach.
 </pre>
 
-### Sprawdzenie poprawności zmiennych kategorycznych
+## Sprawdzenie poprawności zmiennych kategorycznych
 
 ```{r Sprawdzenie poprawności pozostałych zmiennych kategorycznych, echo=FALSE}
 correct_values_Product.Line <- c("Health and beauty", "Electronic accessories", "Home and lifestyle", "Sports and travel", "Food and beverages", "Fashion accessories")
@@ -547,7 +551,7 @@ datatable(results3, options = list(dom = 't', paging = FALSE))
 w wartościach zmiennych kategorycznych.
 </pre>
 
-### Sprawdzenie występowania duplikatów rekordów
+## Sprawdzenie występowania duplikatów rekordów
 
 ```{r Sprawdenie występowania duplikatów rekordów, echo=FALSE}
 duplicates <- duplicated(data)
@@ -564,7 +568,7 @@ datatable(results2, options = list(dom = 't', paging = FALSE), rownames = FALSE)
 W zbiorze tym nie występują również duplikaty wierszów. 
 </pre>
 
-### PODSUMOWANIE
+## PODSUMOWANIE WALIDACJI DANYCH
 
 <pre>
     Z powyższej analizy dotyczącej identyfikacji nieprawidłowości w zbiorze danych dotyczącym sprzedaży w trzech 
@@ -572,71 +576,67 @@ sklepach Biedronka wynika, że wartości zmiennych są poprawne i nie wymagają 
 danych (<em>Data Cleansing</em>).
 </pre>
 
-# 4. Czyszczenie danych z NA
+# 4. Czyszczenie danych z brakujacych obserwacji.
 
 <pre>
+    Poniższy kod uzupełnia brakujące wartości w kolumnach, wykorzystując zależności między zmiennymi i proces 
+imputacji. 
 
-Poniższy kod uzupełnia brakujące wartości w kolumnach na podstawie zależności i imputacji. Kolumna `City` została uzupełniona na podstawie jednoznacznej relacji z kolumną `Branch`. Braki w kolumnie `gross income` zastąpiono wartościami z kolumny `Tax 5%`, ponieważ dane te były tożsame. Braki w kolumnie `Rating` uzupełniono za pomocą imputacji z pakietu `mice`, wykorzystując metodę dopasowania predyktywnego (`pmm`).
-
+Wobec tego:
+  - kolumna 'City' została uzupełniona na podstawie jednoznacznej relacji z kolumną 'Branch';
+  - braki w kolumnie 'gross.income' zastąpiono wartościami z kolumny 'Tax.5.', ponieważ dane te były tożsame; 
+  - braki w kolumnie 'Rating' uzupełniono za pomocą imputacji z pakietu "mice", wykorzystując metodę dopasowania 
+    predyktywnego (<em>"pmm"</em>).
 </pre>
 
-```{r przygotowanie środowiska do trzyszczenia danych, include=FALSE}
-# Instalowanie i ładowanie wymaganych pakietów
-if (!require("dplyr")) install.packages("dplyr")
-if (!require("mice")) install.packages("mice")
-library(mice)
-library(dplyr)
+```{r przygotowanie środowiska do trzyszczenia danych, warning=FALSE}
 
-# Wczytanie danych z pliku CSV
-data <- read.csv("supermarket.csv")
-
-# Mapowanie relacji między Branch a City
+# Mapowanie relacji między 'Branch' a 'City'
 branch_to_city <- data %>%
   filter(!is.na(City)) %>%
   distinct(Branch, City) %>%
   group_by(Branch) %>%
   summarize(City = first(City))
 
-# Łączenie danych, aby wypełnić brakujące wartości w kolumnie City
+# Łączenie danych, aby wypełnić brakujące wartości w kolumnie 'City'
 data <- data %>%
   left_join(branch_to_city, by = "Branch", suffix = c("", ".y")) %>%
   mutate(City = ifelse(is.na(City), City.y, City)) %>%
   select(-City.y)
 
-# Sprawdzanie liczby brakujących wartości w kolumnie City
+# Sprawdzanie liczby brakujących wartości w kolumnie 'City'
 sum(is.na(data$City))
 
 # Sprawdzanie dostępnych kolumn
 colnames(data)
 
-# Zastępowanie brakujących wartości w kolumnie 'gross income' wartością z kolumny 9
+# Zastępowanie brakujących wartości w kolumnie 'gross.income' wartością z kolumny 9
 data <- data %>%
   mutate(`gross.income` = ifelse(is.na(`gross.income`), data[[9]], `gross.income`))
 
 # Sprawdzanie liczby brakujących wartości w kolumnie 'gross income'
 sum(is.na(data$`gross.income`))
 
-# Imputacja brakujących wartości za pomocą pakietu 'mice'
+# Imputacja brakujących wartości w zmiennej 'Rating' za pomocą pakietu 'mice'
 imputed_data <- mice(data, m = 1, method = "pmm", maxit = 50, seed = 123)
 
 # Wybór ukończonego zestawu danych
 data <- complete(imputed_data, 1)
 
-# Sprawdzanie liczby brakujących wartości w całym zbiorze danych
+# Sprawdzanie liczby brakujących wartości w całym zbiorze danych po imputacji
 sum(is.na(data))
 
 ```
 
-# 5. Wartości Odstające
+# 5. Wartości Odstające.
 
 <pre>
-Wartości odstające to obserwacje znacząco odbiegające od reszty danych, które mogą zniekształcać wyniki analiz statystycznych. Aby zminimalizować ich wpływ, przeprowadzono analizę zmiennych `Unit.price`, `Total`, `Quantity` i `Rating`.
+    Wartości odstające to obserwacje znacząco odbiegające od reszty danych, które mogą zniekształcać wyniki analiz 
+statystycznych. Aby zminimalizować ich wpływ, przeprowadzono analizę zmiennych 'Unit.price', 'Total', 'Quantity'
+i 'Rating'.
 </pre>
 
-```{r wartości odstające, include=FALSE}
-# Wczytanie bibliotek
-library(gridExtra)
-
+```{r wartości odstające}
 # Rysowanie boxplotów dla wybranych zmiennych
 b1 <- ggplot(data, aes(y = Unit.price)) +
   geom_boxplot() +
@@ -661,7 +661,6 @@ h2 <- ggplot(data, aes(x = Total)) +
 
 # Wyświetlenie wykresów w siatce 2x2
 grid.arrange(b1, b2, h1, h2, nrow = 2)
-
 replace_outliers_with_median <- function(column) {
   Q1 <- quantile(column, 0.25, na.rm = TRUE)
   Q3 <- quantile(column, 0.75, na.rm = TRUE)
@@ -674,19 +673,25 @@ replace_outliers_with_median <- function(column) {
 ```
 
 <pre>
-W przypadku analizowanych zmiennych „Unit Price” i „Total” zaobserwowano obecność wartości odstających.
+    W przypadku analizowanych zmiennych 'Unit.price' i 'Total' zaobserwowano obecność wartości odstających.
 
-Dla zmiennej „Unit Price” mediana wynosi około 55 dolarów, natomiast wartości maksymalne przekraczają 100 dolarów, co wskazuje na obecność wyjątkowo wysokich wartości, które znacznie przewyższają typowy zakres cen jednostkowych produktów.
+    Dla zmiennej 'Unit.price' mediana wynosi około 55 dolarów, natomiast wartości maksymalne przekraczają 100 
+dolarów, co wskazuje na obecność wyjątkowo wysokich wartości, które znacznie przewyższają typowy zakres cen 
+jednostkowych produktów.
 
-Dla zmiennej „Total” mediana oscyluje w granicach 250 dolarów, podczas gdy wartość maksymalna wynosi ponad 1000 dolarów. Tak duże różnice sugerują, że pewne transakcje znacząco odbiegają od typowego poziomu całkowitych kwot zakupów.
+    Dla zmiennej 'Total' mediana oscyluje w granicach 250 dolarów, podczas gdy wartość maksymalna wynosi ponad 
+1000 dolarów. Tak duże różnice sugerują, że pewne transakcje znacząco odbiegają od typowego poziomu całkowitych 
+kwot zakupów.
 
-Obecność takich wartości odstających może mieć istotny wpływ na wyniki analiz statystycznych, szczególnie w przypadku miar wrażliwych na ekstremalne wartości, takich jak średnia arytmetyczna. Aby zminimalizować ich wpływ i poprawić jakość dalszej analizy danych, wartości odstające zostały zastąpione medianą zmiennych.
+    Obecność takich wartości odstających może mieć istotny wpływ na wyniki analiz statystycznych, szczególnie 
+w przypadku miar wrażliwych na ekstremalne wartości, takich jak średnia arytmetyczna. Aby zminimalizować ich wpływ 
+i poprawić jakość dalszej analizy danych, wartości odstające zostały zastąpione medianą zmiennych.
 
-Działanie to pozwala na bardziej reprezentatywną ocenę danych, co może mieć kluczowe znaczenie w kontekście analizy zachowań klientów, segmentacji rynku lub przewidywania przyszłych trendów sprzedażowych.
+    Działanie to pozwala na bardziej reprezentatywną ocenę danych, co może mieć kluczowe znaczenie w kontekście 
+analizy zachowań klientów, segmentacji rynku lub przewidywania przyszłych trendów sprzedażowych.
 </pre>
 
 ```{r setup4, echo=FALSE, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE)
 # Wybór kolumn numerycznych
 numeric_columns <- c("Unit.price", "Total", "Quantity", "Rating")
 
@@ -704,20 +709,17 @@ detect_outliers <- function(column) {
 outliers_before <- lapply(data[numeric_columns], detect_outliers)
 ```
 
-<pre>
-Wyświetlanie wartości obstających
-</pre>
+## Wyświetlanie wartości odstających dla zmiennej 'Total'
 
-```{r setup5, include=FALSE}
-# Wyświetlanie wartości odstających
+```{r Wyświetlanie wartości odstających, echo=FALSE}
 print(outliers_before$Total)
 ```
 
 <pre>
-Wartości obstające zostały zastąpione stosująć medianę.
+Wartości odstające zostały zastąpione poprzez medianę wartości zmiennej.
 </pre>
 
-```{r setup6, include=FALSE}
+```{r Zastąpienie wartości odstających medianą, include=FALSE}
 # Zastąpienie wartości odstających medianą
 replace_outliers_with_median <- function(column) {
   Q1 <- quantile(column, 0.25, na.rm = TRUE)
@@ -747,24 +749,16 @@ comparison <- data.frame(
 print(comparison)
 ```
 
+## PODSUMOWANIE ANALIZY WARTOŚCI ODSTAJĄCYCH
+
 <pre>
-Zastąpienie wartości odstających w danych pozwala na uzyskanie bardziej reprezentatywnych wyników, eliminując wpływ skrajnych wartości, które mogą zniekształcać analizy. Dzięki temu modelowanie i wnioskowanie staje się bardziej precyzyjne, a interpretacja danych jest łatwiejsza i bardziej wiarygodna. Takie podejście pomaga lepiej uchwycić rzeczywiste zależności w analizowanej próbie.
+    Zastąpienie wartości odstających w danych pozwala na uzyskanie bardziej reprezentatywnych wyników, eliminując 
+wpływ skrajnych wartości, które mogą zniekształcać analizy. Dzięki temu modelowanie i wnioskowanie staje się 
+bardziej precyzyjne, a interpretacja danych jest łatwiejsza i bardziej wiarygodna. Takie podejście pomaga lepiej 
+uchwycić rzeczywiste zależności w analizowanej próbie.
 </pre>
 
-# 6. Statystyki opisowe
-
-</style>
-
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-library(dplyr)
-library(tidyr)
-library(knitr)
-library(moments)
-library(ggplot2)
-```
-
-# 7. Statystyki opisowe
+# 6. Statystyki opisowe.
 
 ```{r Statystyki_opisowe}
 statystyki <- function(x) {
@@ -786,146 +780,133 @@ statystyki <- function(x) {
 }
 ```
 
-### Statystyki dla 'Total'wg płci
+## Statystyki dla zmiennej 'Total' według płci ('Gender')
 
-<pre>
-  Tabela przedstawia statystyki zmiennej Total dla kobiet i mężczyzn. 
-  Wartości minimalne i maksymalne są podobne w obu grupach, co sugeruje zbliżony zakres danych.
-  Mediana i kwartyle pokazują, że kobiety osiągają nieco wyższe wartości Total niż mężczyźni
-  (mediana: 272,58 vs. 244,23). Podobny trend widać w średniej, co oznacza, że ogólnie wartości
-  Total są wyższe dla kobiet.
-
-  Zmienność wyników w obu grupach jest porównywalna – wskazują na to zbliżone wartości
-  odchylenia standardowego i rozstępu międzykwartylowego (IQR). 
-  Skośność dodatnia (0,83 dla kobiet, 0,96 dla mężczyzn) oznacza, że rozkłady są asymetryczne w
-  prawo – większość wartości jest niższa, ale pojawiają się pojedyncze wysokie obserwacje.
-  Kurtoza (2,81 dla kobiet, 3,04 dla mężczyzn) sugeruje, że rozkłady mają umiarkowanie
-  grubsze ogony niż rozkład normalny.
-</pre>
-
-```{r statystyki_total_income_wg_gender}
+```{r Statystki dla zmiennej Total według Gender}
+# Obliczenie statystyk
 statystyki_total <- data %>%
   group_by(Gender) %>%
   summarise(across(Total, statystyki)) %>%
   unnest(cols = c(Total))
-```
 
-### Statystyki dla 'gross income' wg płci
-
-<pre>
-  Tabela przedstawia statystyki dotyczące Gross Income w podziale na płeć.
-  Mediana oraz kwartyle pokazują, że kobiety osiągają nieco wyższe wartości Gross Income niż
-  mężczyźni (mediana: 13,57 vs. 11,22), co znajduje odzwierciedlenie również w średniej (16,03
-  vs. 14,83).
-
-  Zmienność w obu grupach jest porównywalna – świadczą o tym podobne wartości odchylenia
-  standardowego oraz rozstępu międzykwartylowego (IQR). 
-  Dodatnia skośność (0,83 dla kobiet, 0,96 dla mężczyzn) sugeruje, że w obu przypadkach rozkład
-  jest asymetryczny w prawo, czyli większość wartości jest stosunkowo niska, ale pojawiają się
-  pojedyncze wysokie obserwacje. 
-  Kurtoza (2,90 dla kobiet, 3,03 dla mężczyzn) wskazuje, że rozkład ma nieco grubsze ogony niż
-  rozkład normalny, co oznacza większą liczbę wartości skrajnych.
-</pre>
-
-```{r statystyki_gross_income_wg_gender}
-statystyki_income <- data %>%
-  group_by(Gender) %>%
-  summarise(across(gross.income, statystyki)) %>%
-  unnest(cols = c(gross.income))
-```
-
-### Statystyki dla 'Rating' wg typu klienta
-
-<pre>
-  Tabela przedstawia statystyki dotyczące ocen (Rating) wystawianych przez klientów w podziale
-  na typ (Normal i Member). 
-  Zakres ocen w obu grupach jest identyczny (od 4,00 do 10,00). Mediana i kwartyle wskazują, że
-  członkowie programu lojalnościowego (Member) wystawiają nieco wyższe oceny niż klienci zwykli
-  (Normal), choć różnice są niewielkie (mediana: 7,10 vs. 7,00). Średnia również jest
-  minimalnie wyższa dla członków (7,05 vs. 6,97).
-  
-  Rozkłady ocen w obu grupach są bardzo podobne – zarówno odchylenie standardowe, jak i rozstęp
-  międzykwartylowy (IQR) mają zbliżone wartości. Skośność bliska zeru (-0,01 dla Normal, -0,02
-  dla Member) oznacza, że rozkłady są niemal symetryczne. 
-  Kurtoza (1,84 dla Normal, 1,83 dla Member) wskazuje na spłaszczony kształt rozkładu w
-  porównaniu do rozkładu normalnego, co oznacza mniejszą liczbę skrajnych ocen.
-</pre>
-
-```{r statystyki_rating_wg_customer_type}
-statystyki_rating <- data %>%
-  group_by(Customer.type) %>%
-  summarise(across(Rating, statystyki)) %>%
-  unnest(cols = c(Rating))
-```
-
-### Statystyk dla 'Unit price' wg kategorii produktów
-
-<pre>
-  Tabela przedstawia statystyki dotyczące Unit Price (ceny jednostkowej) w podziale na
-  kategorie produktów. Wszystkie kategorie mają podobny zakres cen – wartości minimalne wahają
-  się od 10,08 (Sports and travel) do 10,56 (Health and beauty), natomiast maksymalne ceny są
-  bardzo zbliżone i mieszczą się w przedziale 99,73–99,96.
-  Mediana ceny jednostkowej jest najwyższa dla Fashion accessories (58,65) oraz Sports and
-  travel (57,41), a najniższa dla Home and lifestyle (54,00). Średnie wartości są również do
-  siebie zbliżone, ale najwyższą średnią cenę mają Electronic accessories (57,15), a najniższą
-  Sports and travel (54,85) oraz Food and beverages (55,32).
-  Odchylenie standardowe we wszystkich grupach jest bardzo podobne – waha się od 26,21 (Food
-  and beverages) do 26,91 (Fashion accessories), co wskazuje na zbliżoną zmienność cen w każdej
-  kategorii. Rozstęp międzykwartylowy (IQR) również pokazuje, że ceny w poszczególnych
-  kategoriach nie różnią się znacznie pod względem rozproszenia – najwyższy IQR ma Health and
-  beauty (47,92), a najniższy Food and beverages (43,21).
-  Skośność we wszystkich przypadkach jest bliska zeru, co oznacza, że rozkłady cen są
-  symetryczne – nie występuje wyraźne przesunięcie w stronę niższych lub wyższych wartości.
-  Kurtoza we wszystkich kategoriach mieści się w przedziale 1,70–1,85, co oznacza, że rozkłady
-  cen są lekko spłaszczone w porównaniu do rozkładu normalnego. Wskazuje to na mniejszą liczbę
-  wartości skrajnych, czyli rzadziej występujące wyjątkowo niskie lub wysokie ceny.
-</pre>
-
-```{r statystyki_unit_price_wg_product_line}
-statystyki_unit_price <- data %>%
-  group_by(Product.line) %>%
-  summarise(across(Unit.price, statystyki)) %>%
-  unnest(cols = c(Unit.price))
-```
-
-```{r przeksztalcanie_tabele}
+# Przekształcenie danych na format długi
 tabela_total <- statystyki_total %>%
   pivot_longer(cols = -Gender, names_to = "Statystyka", values_to = "Wartość") %>%
   pivot_wider(names_from = Gender, values_from = Wartość)
 
-tabela_income <- statystyki_income %>%
-  pivot_longer(cols = -Gender, names_to = "Statystyka", values_to = "Wartość") %>%
-  pivot_wider(names_from = Gender, values_from = Wartość)
-
-tabela_rating <- statystyki_rating %>%
-  pivot_longer(cols = -Customer.type, names_to = "Statystyka", values_to = "Wartość") %>%
-  pivot_wider(names_from = Customer.type, values_from = Wartość)
-
-tabela_unit_price <- statystyki_unit_price %>%
-  pivot_longer(cols = -Product.line, names_to = "Statystyka", values_to = "Wartość") %>%
-  pivot_wider(names_from = Product.line, values_from = Wartość)
-```
-
-```{r tabele}
 # Wyświetlenie tabel
 knitr::kable(tabela_total,
              digits = 2,
              align = "lcc",
              caption = "Tabela 1. Statystyki dla 'Total' wg płci.",
              col.names = c("Statystyka", "Kobiety", "Mężczyźni"))
+```
+<pre>
+Tabela przedstawia statystyki zmiennej 'Total' dla kobiet i mężczyzn. 
 
+Na jej podstawie stwierdzić można, że:
+  - Wartości minimalne i maksymalne są podobne w obu grupach, co sugeruje zbliżony zakres danych.
+  - Mediana i kwartyle pokazują, że kobiety osiągają nieco wyższe wartości 'Total' niż mężczyźni 
+    (mediana: 272,58 vs. 244,23). Podobny trend widać w średniej, co oznacza, że ogólnie wartości
+    zmiennej 'Total' są wyższe dla kobiet.
+  - Zmienność wyników w obu grupach jest porównywalna – wskazują na to zbliżone wartości odchylenia 
+    standardowego i rozstępu międzykwartylowego (IQR). 
+  - Skośność dodatnia (0,83 dla kobiet, 0,96 dla mężczyzn) oznacza, że rozkłady są asymetryczne 
+    w prawo – większość wartości jest niższa, ale pojawiają się pojedyncze wysokie obserwacje.
+  - Kurtoza (2,81 dla kobiet, 3,04 dla mężczyzn) sugeruje, że rozkłady mają umiarkowanie grubsze 
+    ogony niż rozkład normalny.
+</pre>
+
+## Statystyki dla 'gross.income' według płci ('Gender')
+
+```{r Statystki dla zmiennej gross.income według Gender}
+# Obliczenie statystyk
+statystyki_income <- data %>%
+  group_by(Gender) %>%
+  summarise(across(gross.income, statystyki)) %>%
+  unnest(cols = c(gross.income))
+
+# Przekształcenie danych na format długi
+tabela_income <- statystyki_income %>%
+  pivot_longer(cols = -Gender, names_to = "Statystyka", values_to = "Wartość") %>%
+  pivot_wider(names_from = Gender, values_from = Wartość)
+
+# Wyświetlenie tabel
 knitr::kable(tabela_income,
              digits = 2,
              align = "lcc",
-             caption = "Tabela 2. Statystyki dla 'Gross Income' wg płci.",
+             caption = "Tabela 2. Statystyki dla 'gross.income' wg płci.",
              col.names = c("Statystyka", "Kobiety", "Mężczyźni"))
+```
 
+<pre>
+Tabela przedstawia statystyki dotyczące gross.income w podziale na płeć.
+
+Na jej podstawie stwierdzić można, że:
+  - Mediana oraz kwartyle pokazują, że kobiety osiągają nieco wyższe wartości Gross Income niż
+    mężczyźni (mediana: 13,57 vs. 11,22), co znajduje odzwierciedlenie również w średniej (16,03
+    vs. 14,83).
+  - Zmienność w obu grupach jest porównywalna – świadczą o tym podobne wartości odchylenia
+    standardowego oraz rozstępu międzykwartylowego (IQR). 
+  - Dodatnia skośność (0,83 dla kobiet, 0,96 dla mężczyzn) sugeruje, że w obu przypadkach rozkład
+    jest asymetryczny w prawo, czyli większość wartości jest stosunkowo niska, ale pojawiają się
+    pojedyncze wysokie obserwacje. 
+  - Kurtoza (2,90 dla kobiet, 3,03 dla mężczyzn) wskazuje, że rozkład ma nieco grubsze ogony niż
+    rozkład normalny, co oznacza większą liczbę wartości skrajnych.
+</pre>
+
+## Statystyki dla 'Rating' według typu klienta ('Customer.type')
+
+```{r Statystki dla zmiennej Rating według Customer.type}
+# Obliczenie statystyk
+statystyki_rating <- data %>%
+  group_by(Customer.type) %>%
+  summarise(across(Rating, statystyki)) %>%
+  unnest(cols = c(Rating))
+
+# Przekształcenie danych na format długi
+tabela_rating <- statystyki_rating %>%
+  pivot_longer(cols = -Customer.type, names_to = "Statystyka", values_to = "Wartość") %>%
+  pivot_wider(names_from = Customer.type, values_from = Wartość)
+
+# Wyświetlenie tabel
 knitr::kable(tabela_rating,
              digits = 2,
              align = "lcc",
              caption = "Tabela 3. Statystyki dla 'Rating' wg typu klienta.",
              col.names = c("Statystyka", "Normal", "Member"))
+```
+<pre>
+    Tabela przedstawia statystyki dotyczące ocen ('Rating') wystawianych przez klientów w podziale
+na typ (Normal i Member). 
 
+Na jej podstawie stwierdzić można, że:
+  - Zakres ocen w obu grupach jest identyczny (od 4,00 do 10,00). Mediana i kwartyle wskazują, że
+    członkowie programu lojalnościowego (Member) wystawiają nieco wyższe oceny niż klienci zwykli
+    (Normal), choć różnice są niewielkie (mediana: 7,10 vs. 7,00). Średnia również jest
+    minimalnie wyższa dla członków (7,05 vs. 6,97).
+  - Rozkłady ocen w obu grupach są bardzo podobne – zarówno odchylenie standardowe, jak i rozstęp
+    międzykwartylowy (IQR) mają zbliżone wartości. Skośność bliska zeru (-0,01 dla Normal, -0,02
+    dla Member) oznacza, że rozkłady są niemal symetryczne. 
+  - Kurtoza (1,84 dla Normal, 1,83 dla Member) wskazuje na spłaszczony kształt rozkładu w
+    porównaniu do rozkładu normalnego, co oznacza mniejszą liczbę skrajnych ocen.
+</pre>
+
+## Statystyk dla 'Unit.price' według kategorii produktów ('Product.line')
+
+```{r Statystki dla zmiennej Unit.price według Product.line}
+# Obliczenie statystyk
+statystyki_unit_price <- data %>%
+  group_by(Product.line) %>%
+  summarise(across(Unit.price, statystyki)) %>%
+  unnest(cols = c(Unit.price))
+
+# Przekształcenie danych na format długi
+tabela_unit_price <- statystyki_unit_price %>%
+  pivot_longer(cols = -Product.line, names_to = "Statystyka", values_to = "Wartość") %>%
+  pivot_wider(names_from = Product.line, values_from = Wartość)
+
+# Wyświetlenie tabel
 knitr::kable(tabela_unit_price,
              digits = 2,
              align = "lcc",
@@ -933,14 +914,41 @@ knitr::kable(tabela_unit_price,
              col.names = c("Statystyka", unique(data$Product.line)))
 ```
 
-# 8. Wykresy
-
 <pre>
-Wykres kołowy Na wykresie kołowym prezentuje preferencje metody płatności wezględu na płeć. Mężni wolą płacić karta debetową, kobiety preferują płatności gotówką.
+    Tabela przedstawia statystyki dotyczące Unit Price (ceny jednostkowej) w podziale na
+kategorie produktów. 
+
+Na jej podstawie stwierdzić można, że:
+  - Wszystkie kategorie mają podobny zakres cen – wartości minimalne wahają
+    się od 10,08 (Sports and travel) do 10,56 (Health and beauty), natomiast maksymalne ceny są
+    bardzo zbliżone i mieszczą się w przedziale 99,73–99,96.
+  - Mediana ceny jednostkowej jest najwyższa dla Fashion accessories (58,65) oraz Sports and
+    travel (57,41), a najniższa dla Home and lifestyle (54,00). Średnie wartości są również do
+    siebie zbliżone, ale najwyższą średnią cenę mają Electronic accessories (57,15), a najniższą
+    Sports and travel (54,85) oraz Food and beverages (55,32).
+  - Odchylenie standardowe we wszystkich grupach jest bardzo podobne – waha się od 26,21 (Food
+    and beverages) do 26,91 (Fashion accessories), co wskazuje na zbliżoną zmienność cen w każdej
+    kategorii. Rozstęp międzykwartylowy (IQR) również pokazuje, że ceny w poszczególnych
+    kategoriach nie różnią się znacznie pod względem rozproszenia – najwyższy IQR ma Health and
+    beauty (47,92), a najniższy Food and beverages (43,21).
+  - Skośność we wszystkich przypadkach jest bliska zeru, co oznacza, że rozkłady cen są
+    symetryczne – nie występuje wyraźne przesunięcie w stronę niższych lub wyższych wartości.
+  - Kurtoza we wszystkich kategoriach mieści się w przedziale 1,70–1,85, co oznacza, że rozkłady
+    cen są lekko spłaszczone w porównaniu do rozkładu normalnego. Wskazuje to na mniejszą liczbę
+    wartości skrajnych, czyli rzadziej występujące wyjątkowo niskie lub wysokie ceny.
 </pre>
 
-```{r setup7, include=FALSE }
-knitr::opts_chunk$set(echo = FALSE)
+# 7. Wykresy.
+
+## Wykres kołowy
+
+<pre>
+    Wykres kołowy prezentuje preferencje metody płatności wezględu na płeć. Wynika z niego, że mężczyźni wolą płacić
+karta debetową, kobiety natomiast preferują płatności gotówką.
+</pre>
+
+```{r setup8, include=FALSE }
+# Tworzenie wykresu kołowego
 # Podział danych według płci i metody płatności
 gender_payment_counts <- data %>%
   group_by(Gender, Payment) %>%
@@ -977,15 +985,22 @@ library(gridExtra)
 grid.arrange(plot_female, plot_male, ncol = 2)
 ```
 
-### Wykres Histogram i pudełkowy
+## Histogram i wykres pudełkowy
 
 <pre>
-    Histogram przedstawia rozkład ocen w poszczególnych miastach, pokazując, jak często występują określone wartości ocen. Dzięki niemu możemy łatwo zauważyć ogólny kształt rozkładu, jego skośność oraz ewentualne wartości odstające. Z kolei wykres pudełkowy (boxplot) pozwala lepiej zobaczyć rozkład danych pod kątem ich mediany, kwartylów oraz wartości odstających. Środkowa linia w pudełku reprezentuje medianę ocen, a granice pudełka pokazują zakres między pierwszym a trzecim kwartylem. Wąsy wskazują wartości minimalne i maksymalne, pomijając odstające obserwacje, które są zaznaczone jako osobne punkty. Wykres pudełkowy ułatwia szybkie porównanie mediany ocen między różnymi miastami oraz identyfikację ewentualnych różnic w rozproszeniu danych.
+    Histogram przedstawia rozkład ocen w poszczególnych miastach, pokazując, jak często występują określone wartości
+ocen. Dzięki niemu możemy łatwo zauważyć ogólny kształt rozkładu, jego skośność oraz ewentualne wartości odstające.
+    
+    Z kolei wykres pudełkowy (boxplot) pozwala lepiej zobaczyć rozkład danych pod kątem ich mediany, kwartylów oraz
+wartości odstających. Środkowa linia w pudełku reprezentuje medianę ocen, a granice pudełka pokazują zakres między
+pierwszym a trzecim kwartylem. Wąsy wskazują wartości minimalne i maksymalne, pomijając odstające obserwacje,
+które są zaznaczone jako osobne punkty. Wykres pudełkowy ułatwia szybkie porównanie mediany ocen między różnymi
+miastami oraz identyfikację ewentualnych różnic w rozproszeniu danych.
 </pre>
 
 ```{r histogram, inlude=FALSE}
+# Tworzenie histogramu
 # Wyświetlenie wykresów obok siebie
-library(gridExtra)
 grid.arrange(plot_female, plot_male, ncol = 2)
 
 # Oddzielne histogramy dla każdego miasta
@@ -1003,6 +1018,7 @@ ggplot(data, aes(x = Rating)) +
     axis.text = element_text(size = 10),
     axis.title = element_text(size = 12)
   )
+
 # Rozkład dla oceny 
 ggplot(data, aes(x = City, y = Rating, fill = City)) +
   geom_boxplot(alpha = 0.8) +
@@ -1016,14 +1032,16 @@ ggplot(data, aes(x = City, y = Rating, fill = City)) +
   scale_fill_brewer(palette = "Pastel1")
 ```
 
-### Wykres słópkowy
+## Wykres słupkowy
 
 <pre>
-    Wykres słupkowy przedstawia średnią sprzedaż dla każdej linii produktów, co pozwala na szybkie porównanie wyników poszczególnych kategorii. Słupki mają kolor niebieski, a ich wysokość odpowiada wartości średniej sprzedaży w danej linii produktów.
+    Wykres słupkowy przedstawia średnią sprzedaż dla każdej linii produktów, co pozwala na szybkie porównanie
+wyników poszczególnych kategorii. Słupki mają kolor niebieski, a ich wysokość odpowiada wartości średniej sprzedaży
+w danej linii produktów.
 </pre>
 
 ```{r wykres słópkowy, inlude=FALSE}
-# Tworzenie wykresu słópkowego 
+# Tworzenie wykresu słupkowego 
 # Obliczanie średniej sprzedaży dla każdej linii produktów
 average_sales <- aggregate(Total ~ Product.line, data = data, mean)
 
@@ -1046,15 +1064,15 @@ barplot(
 mtext("Linia produktów", side = 1, line = 7, cex = 1.2)
 ```
 
-### Wykres heatmapa
+## Wykres typu "heatmapa"
 
 <pre>
-    Wykres typu heatmapa przedstawia średnie oceny (Rating) w zależności od miasta i płci. Kolor kafelków odzwierciedla wartość średniej oceny – jaśniejsze odcienie oznaczają niższe wartości, a ciemniejsze wyższe
+    Wykres typu <em>heatmapa</em> przedstawia średnie oceny (Rating) w zależności od miasta i płci. Kolor kafelków
+odzwierciedla wartość średniej oceny – jaśniejsze odcienie oznaczają niższe wartości, a ciemniejsze wyższe.
 </pre>
 
-```{r setup, inlude=FALSE}
-library(dplyr)
-
+```{r heatmapa, inlude=FALSE}
+# Tworzenie wykresu typu "heatmapa"
 # Agregowanie danych
 heatmap_data <- data %>%
   group_by(City, Gender) %>%
@@ -1075,10 +1093,12 @@ ggplot(heatmap_data, aes(x = Gender, y = City, fill = Average_Rating)) +
 
 ```
 
-### Wykres linowy
+## Wykres linowy
 
 <pre>
-    Wykres liniowy przedstawia trend sprzedaży w czasie, umożliwiając obserwację zmian w całkowitej sprzedaży na przestrzeni dni. Linia łączy punkty reprezentujące dzienne sumy sprzedaży, co pozwala na łatwe dostrzeżenie wzorców, takich jak okresowe wzrosty i spadki.
+    Wykres liniowy przedstawia trend sprzedaży w czasie, umożliwiając obserwację zmian w całkowitej sprzedaży 
+na przestrzeni dni. Linia łączy punkty reprezentujące dzienne sumy sprzedaży, co pozwala na łatwe dostrzeżenie 
+wzorców, takich jak okresowe wzrosty i spadki.
 </pre>
 
 ```{r wykres linowy, inlude=FALSE}
@@ -1110,121 +1130,132 @@ points(
 )
 ```
 
-### Porównanie 'Total' i 'Branch'
+## Porównanie 'Total' i 'Branch'
 
 <pre>
-  Wykres pudełkowy przedstawia porównanie wartości 'Total' dla trzech gałęzi (A, B, C). Każda
-  gałąź ma podobny rozkład wartości, z medianą na zbliżonym poziomie. Występują wartości
-  odstające (outliers) powyżej 1000. Rozstęp międzykwartylowy (IQR) jest podobny dla wszystkich
-  gałęzi, co sugeruje względnie równomierne rozproszenie danych.
+Wykres pudełkowy przedstawia porównanie wartości 'Total' dla trzech gałęzi (A, B, C).
+  
+Każda gałąź ma podobnyrozkład wartości, z medianą na zbliżonym poziomie. 
+Występują wartości odstające (outliers) powyżej 1000. 
+Rozstęp międzykwartylowy (IQR) jest podobny dla wszystkich gałęzi, co sugeruje względnie równomierne
+rozproszenie danych.
 </pre>
 
-```{r porownanie_total_branch, include=FALSE}
+```{r porownanie_total_branch}
 # Porównanie Total wg gałęzi
 ggplot(data, aes(x = Branch, y = Total, fill = Branch)) +
   geom_boxplot() +
   labs(title = "Porównanie 'Total' wg gałęzi", x = "Gałęzie", y = "Total")
 ```
 
-### Rozkład 'gross income' i 'customer type'
+## Rozkład 'gross income' i 'customer type'
 
 <pre>
-  Większość transakcji generuje niskie wartości Gross Income (głównie poniżej 10), co widać po
-  wysokich słupkach na początku osi X.
-  Rozkład jest prawostronnie skośny – im wyższy Gross Income, tym rzadsze transakcje.
-  Klienci Normal (turkusowy kolor) mają więcej transakcji o niższych wartościach Gross Income,
-  ale ich rozkład jest zbliżony do członków Member (czerwony kolor).
+Większość transakcji generuje niskie wartości 'gross.income' (głównie poniżej 10), co widać po wysokich
+słupkach na początku osi X. 
+Rozkład jest prawostronnie skośny – im wyższy Gross Income, tym rzadsze transakcje. 
+Klienci Normal (turkusowy kolor) mają więcej transakcji o niższych wartościach Gross Income, ale ich
+rozkład jest zbliżony do członków Member (czerwony kolor).
 </pre>
 
-```{r rozklad_gross_income_customer_type, include=FALSE}
+```{r rozklad_gross_income_customer_type}
 ggplot(data, aes(x = gross.income, fill = Customer.type)) +
   geom_histogram(bins = 20, alpha = 0.7, position = "identity") +
   labs(title = "Rozkład 'Gross Income' wg typu klienta", x = "Gross Income", y = "Liczba transakcji")
 ```
 
-### Rozkład 'rating' wg płci
+## Rozkład 'Rating' według płci ('Gender')
 
 <pre>
-  Wykres przedstawia rozkład ocen w zależności od płci (Female – czerwony, Male – turkusowy).
-  Ogólny rozkład ocen dla obu płci jest podobny, ale są pewne różnice w gęstości.
-  Mężczyźni (turkusowy) mają większą koncentrację ocen wokół 6-7, co oznacza, że częściej
-  wystawiają oceny w tym zakresie.
-  Kobiety (czerwony) mają więcej ocen w skrajnych wartościach – widoczny jest nieco większy
-  udział ocen w okolicach 4-5 oraz 9-10.
-  Ogólnie, różnice nie są duże, ale kobiety częściej wystawiają zarówno bardzo niskie, jak i
-  bardzo wysokie oceny, a mężczyźni częściej oceniają w średnim zakresie.
+Wykres przedstawia rozkład ocen w zależności od płci (Female – czerwony, Male – turkusowy).
+  
+Ogólny rozkład ocen dla obu płci jest podobny, ale są pewne różnice w gęstości.
+Mężczyźni (turkusowy) mają większą koncentrację ocen wokół 6-7, co oznacza, że częściej wystawiają oceny 
+w tym zakresie.
+Kobiety (czerwony) mają więcej ocen w skrajnych wartościach – widoczny jest nieco większy udział ocen 
+w okolicach 4-5 oraz 9-10.
+
+Ogólnie, różnice nie są duże, ale kobiety częściej wystawiają zarówno bardzo niskie, jak i bardzo wysokie oceny,
+a mężczyźni częściej oceniają w średnim zakresie.
 </pre>
 
-```{r rozklad_rating_gender, include=FALSE}
+```{r rozklad_rating_gender}
 ggplot(data, aes(x = Rating, fill = Gender)) +
   geom_density(alpha = 0.5) +
   labs(title = "Rozkład ocen wg płci", x = "Ocena", y = "Gęstość")
 ```
 
-### Porównanie 'gross income' i płci
+## Porównanie 'gross.income' i płci ('Gender')
 
 <pre>
-  Wykres przedstawia porównanie dochodów brutto ze względu na płeć. Mediana dochodów kobiet i
-  mężczyzn jest na zbliżonym poziomie, co sugeruje brak istotnych różnic w przeciętnych
-  zarobkach między grupami. Rozkład dochodów w obu przypadkach jest podobny, choć widać kilka
-  wartości odstających, wskazujących na jednostki z wyraźnie wyższymi zarobkami. 
-  Ogólnie dochody obu płci mają porównywalną strukturę.
+Wykres przedstawia porównanie dochodów brutto ze względu na płeć. 
+    
+Mediana dochodów kobiet i mężczyzn jest na zbliżonym poziomie, co sugeruje brak istotnych różnic 
+w przeciętnych zarobkach między grupami. 
+Rozkład dochodów w obu przypadkach jest podobny, choć widać kilka wartości odstających, wskazujących 
+na jednostki z wyraźnie wyższymi zarobkami. 
+
+Ogólnie dochody obu płci mają porównywalną strukturę.
 </pre>
 
-```{r porownanie_gross_income_gender, include=FALSE}
+```{r porownanie_gross_income_gender}
 ggplot(data, aes(x = Gender, y = gross.income, fill = Gender)) +
   geom_boxplot() +
   labs(title = "Gross Income wg płci", x = "Płeć", y = "Gross Income")
 ```
 
-### Porównanie 'customer type' i 'total'
+## Porównanie 'Customer.type' i 'Total'
 
 <pre>
-  Wykres przedstawia porównanie całkowitej wartości zakupów w zależności od typu klienta.
-  Mediana wydatków dla członków programu lojalnościowego (Member) i klientów standardowych
-  (Normal) jest na podobnym poziomie, co sugeruje brak istotnych różnic w przeciętnych
-  wartościach zakupów. Rozkład wydatków jest zbliżony dla obu grup, choć występują pojedyncze
-  wartości odstające wskazujące na wyjątkowo wysokie zakupy. 
-  Ogólnie rzecz biorąc, typ klienta nie wydaje się mieć dużego wpływu na poziom wydatków.
+Wykres przedstawia porównanie całkowitej wartości zakupów w zależności od typu klienta.
+    
+Mediana wydatków dla członków programu lojalnościowego (Member) i klientów standardowych (Normal) jest 
+na podobnym poziomie, co sugeruje brak istotnych różnic w przeciętnych wartościach zakupów. Rozkład wydatków
+jest zbliżony dla obu grup, choć występują pojedyncze wartości odstające wskazujące na wyjątkowo wysokie zakupy.
+
+Ogólnie rzecz biorąc, typ klienta nie wydaje się mieć dużego wpływu na poziom wydatków.
 </pre>
 
-```{r porownanie_customer_type_total, include=FALSE}
+```{r porownanie_customer_type_total}
 ggplot(data, aes(x = Customer.type, y = Total, fill = Customer.type)) +
   geom_boxplot() +
   labs(title = "Total wg typu klienta", x = "Typ klienta", y = "Total")
 ```
 
-### Porównanie 'rating' i 'branch'
+## Porównanie 'Rating' i 'Branch'
 
 <pre>
-  Wykres przedstawia porównanie ocen (Rating) dla trzech różnych gałęzi (A, B, C). Mediany ocen
-  we wszystkich gałęziach są zbliżone, co sugeruje, że poziom ocen klientów jest podobny
-  niezależnie od oddziału. Rozkład ocen jest szeroki, co oznacza, że w każdej gałęzi występują
-  zarówno niskie, jak i wysokie oceny. 
-  Ogólnie rzecz biorąc, nie widać znaczących różnic w ocenach między oddziałami.
+Wykres przedstawia porównanie ocen (Rating) dla trzech różnych gałęzi (A, B, C). 
+    
+Mediany ocen we wszystkich gałęziach są zbliżone, co sugeruje, że poziom ocen klientów jest podobny
+niezależnie od oddziału. Rozkład ocen jest szeroki, co oznacza, że w każdej gałęzi występują zarówno niskie,
+jak i wysokie oceny. 
+
+Ogólnie rzecz biorąc, nie widać znaczących różnic w ocenach między oddziałami.
 </pre>
 
-```{r porownanie_rating_branch, include=FALSE}
+```{r porownanie_rating_branch}
 ggplot(data, aes(x = Branch, y = Rating, fill = Branch)) +
   geom_boxplot() +
   labs(title = "Porównanie 'Rating' wg gałęzi", x = "Gałęzie", y = "Rating")
 ```
 
-### Porównanie 'gross income' i 'product line'
+## Porównanie 'gross.income' i 'Product.line'
 
 <pre>
-  Wykres przedstawia porównanie dochodu brutto ("Gross Income") w różnych kategoriach
-  produktów. 
-  Większość kategorii produktów ma podobną medianę wartości dochodu brutto, co sugeruje, że
-  przeciętny dochód dla różnych typów produktów jest zbliżony. Szerokość pudełek jest podobna w
-  większości kategorii, co oznacza porównywalną zmienność danych. W każdej kategorii występują
-  wartości odstające, co sugeruje, że w niektórych przypadkach dochód brutto był wyjątkowo
-  wysoki.
-  Ogólnie rzecz biorąc, różnice między kategoriami produktów nie są znaczące, co sugeruje, że
-  żadna z nich nie wyróżnia się wyraźnie pod względem dochodu brutto.
+Wykres przedstawia porównanie dochodu brutto ("Gross Income") w różnych kategoriach produktów.
+    
+Większość kategorii produktów ma podobną medianę wartości dochodu brutto, co sugeruje, że przeciętny dochód 
+dla różnych typów produktów jest zbliżony. 
+Szerokość pudełek jest podobna w większości kategorii, co oznacza porównywalną zmienność danych. 
+W każdej kategorii występują wartości odstające, co sugeruje, że w niektórych przypadkach dochód brutto był 
+wyjątkowo wysoki.
+
+Ogólnie rzecz biorąc, różnice między kategoriami produktów nie są znaczące, co sugeruje, że żadna z nich nie 
+wyróżnia się wyraźnie pod względem dochodu brutto.
 </pre>
 
-```{r porownanie_gross_income_product_line, include=FALSE}
+```{r porownanie_gross_income_product_line}
 ggplot(data, aes(x = Product.line, y = gross.income, fill = Product.line)) +
   geom_boxplot() +
   labs(title = "Porównanie 'Gross Income' wg kategorii produktów", x = "Kategoria produktu", y = "Gross Income") +
@@ -1241,7 +1272,7 @@ testów parametrycznych i nieparametrycznych w celu zrozumienia określonych war
 zmienne kategoryczne to: 'City', 'Customer.type' i 'Payment'.
 </pre>
 
-### Testowanie normalności rozkładów
+## Testowanie normalności rozkładów
 
 <pre>
     Testowanie normalności rozkładów zmiennych opiera się na statystyce Shapiro-Wilka oraz wykresie Q-Q 
@@ -1253,11 +1284,9 @@ zmienne kategoryczne to: 'City', 'Customer.type' i 'Payment'.
     HA: <em>Badana zmienna nie posiada rozkładu normalnego wartości.</em>
 </pre>
 
-#### \* Zmienna 'Rating'\*
+### *> Zmienna 'Rating'*
 
 ```{r Testy normalności - Rating, echo=FALSE}
-if (!require("kableExtra")) install.packages("kableExtra")
-library("kableExtra")
 shapiro_test1 <- shapiro.test(data$Rating)
 results4 <- data.frame(
   Statystyka = round(shapiro_test1$statistic, 2),
@@ -1271,9 +1300,16 @@ results4 %>%
     html_font = "Arial",
     font_size = 14)
 
+ggplot(data, aes(sample = Rating)) +
+  stat_qq(color = "#0077b6") +
+  stat_qq_line() +
+  theme_minimal() +
+  labs(title = "Wykres Q-Q dla zmiennej 'Rating'",
+       x = "Teoretyczne kwantyle",
+       y = "Empiryczne kwantyle")
 ```
 
-#### *Zmienna 'Unit.price'*
+### *> Zmienna 'Unit.price'*
 
 ```{r Testy normalności - Unit.price, echo=FALSE}
 shapiro_test2 <- shapiro.test(data$Unit.price)
@@ -1289,11 +1325,16 @@ results5 %>%
     html_font = "Arial",
     font_size = 14)
 
-
-
+ggplot(data, aes(sample = Unit.price)) +
+  stat_qq(color = "#db5375") +
+  stat_qq_line() +
+  theme_minimal() +
+  labs(title = "Wykres Q-Q dla zmiennej 'Unit.price'",
+       x = "Teoretyczne kwantyle",
+       y = "Empiryczne kwantyle")
 ```
 
-#### *\> Zmienna 'Quantity'*
+### *> Zmienna 'Quantity'*
 
 ```{r Testy normalności - Quantity, echo=FALSE}
 shapiro_test3 <- shapiro.test(data$Quantity)
@@ -1309,10 +1350,16 @@ results6 %>%
     html_font = "Arial",
     font_size = 14)
 
-
+ggplot(data, aes(sample = Quantity)) +
+  stat_qq(color = "#2a9d8f") +
+  stat_qq_line() +
+  theme_minimal() +
+  labs(title = "Wykres Q-Q dla zmiennej 'Quantity'",
+       x = "Teoretyczne kwantyle",
+       y = "Empiryczne kwantyle")
 ```
 
-#### *\> Zmienna 'Total'*
+### *> Zmienna 'Total'*
 
 ```{r Testy normalności - Total, echo=FALSE}
 shapiro_test4 <- shapiro.test(data$Total)
@@ -1328,7 +1375,13 @@ results7 %>%
     html_font = "Arial",
     font_size = 14)
 
-
+ggplot(data, aes(sample = Total)) +
+  stat_qq(color = "#f6bd60") +
+  stat_qq_line() +
+  theme_minimal() +
+  labs(title = "Wykres Q-Q dla zmiennej 'Total'",
+       x = "Teoretyczne kwantyle",
+       y = "Empiryczne kwantyle")
 ```
 
 <pre>
@@ -1344,9 +1397,9 @@ rozkładu normalnego, czym również przyczyniły się do wsparcia hipotezy o br
     Wobec powyższego przyjmuje się, że dalsze analizowanie zmiennych opierać się będzie o testy nieparametryczne.
 </pre>
 
-### Testy nieparametryczne dla wybranych zmiennych ilościowych i kategorycznych
+## Testy nieparametryczne dla wybranych zmiennych ilościowych i kategorycznych
 
-#### Histogramy i test Wilcoxona
+### Histogramy i test Wilcoxona
 
 ```{r Test nieparametryczny dla Total, echo=FALSE, message=FALSE, warning=FALSE}
 gghistostats(
@@ -1415,9 +1468,9 @@ Przedstatwione wyżej histogramy dla wybranych zmiennych ilościowych wykazały,
 odrzucić H0 mówiące o braku różnic między wartościami zmiennych, a ich medianą.
 </pre>
 
-#### Testy zależności
+### Testy zależności
 
-##### *\> Testy zależności dla zmiennej 'Rating'*
+#### *> Testy zależności dla zmiennej 'Rating'*
 
 ```{r Testy zależności - Rating1, echo=FALSE, fig.show='hold'}
 ggbetweenstats(
@@ -1519,7 +1572,7 @@ za tym idzie - jej korelacja z formą płatności istnieje i jest dodatnia (p > 
 kartę nie ma podstaw do odrzucenia H0, zatem jej korelacja z formą płatności nie występuje.
 </pre>
 
-# 9. PODSUMOWANIE
+## PODSUMOWANIE CZĘŚCI TESTOWEJ
 
 <pre>
 Przeprowadzone testy wykazały następujące zależności:
