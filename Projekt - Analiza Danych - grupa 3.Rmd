@@ -1496,14 +1496,6 @@ od mediany dla mężczyzn.
 #### *Test korelacji między zmiennymi 'Customer.type' i 'Payment'*
 
 ```{r Korelacja między Customer.type i Payment, echo=FALSE}
-ggbetweenstats(
-  data=data,
-  y=Quantity,
-  x=Gender,
-  type="np")
-```
-
-```{r Korelacja między Customer.type i Payment, echo=FALSE}
 ggbarstats(
   data=data,
   y=Customer.type,
