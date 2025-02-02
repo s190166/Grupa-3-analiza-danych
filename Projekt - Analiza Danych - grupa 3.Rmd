@@ -631,9 +631,9 @@ sum(is.na(data))
 # 5. Wartości Odstające.
 
 <pre>
-    Wartości odstające to obserwacje znacząco odbiegające od reszty danych, które mogą zniekształcać wyniki analiz 
-statystycznych. Aby zminimalizować ich wpływ, przeprowadzono analizę zmiennych 'Unit.price', 'Total', 'Quantity'
-i 'Rating'.
+    Wartości odstające to obserwacje znacząco odbiegające od reszty danych, które mogą zniekształcać wyniki
+analiz statystycznych. Aby zminimalizować ich wpływ, przeprowadzono analizę zmiennych 'Unit.price', 'Total',
+'Quantity' i 'Rating'.
 </pre>
 
 ```{r wartości odstające}
@@ -684,8 +684,8 @@ jednostkowych produktów.
 kwot zakupów.
 
     Obecność takich wartości odstających może mieć istotny wpływ na wyniki analiz statystycznych, szczególnie 
-w przypadku miar wrażliwych na ekstremalne wartości, takich jak średnia arytmetyczna. Aby zminimalizować ich wpływ 
-i poprawić jakość dalszej analizy danych, wartości odstające zostały zastąpione medianą zmiennych.
+w przypadku miar wrażliwych na ekstremalne wartości, takich jak średnia arytmetyczna. Aby zminimalizować ich 
+wpływ i poprawić jakość dalszej analizy danych, wartości odstające zostały zastąpione medianą zmiennych.
 
     Działanie to pozwala na bardziej reprezentatywną ocenę danych, co może mieć kluczowe znaczenie w kontekście 
 analizy zachowań klientów, segmentacji rynku lub przewidywania przyszłych trendów sprzedażowych.
@@ -943,8 +943,8 @@ Na jej podstawie stwierdzić można, że:
 ## Wykres kołowy
 
 <pre>
-    Wykres kołowy prezentuje preferencje metody płatności wezględu na płeć. Wynika z niego, że mężczyźni wolą płacić
-karta debetową, kobiety natomiast preferują płatności gotówką.
+    Wykres kołowy prezentuje preferencje metody płatności wezględu na płeć. Wynika z niego, że mężczyźni wolą 
+płacić karta debetową, kobiety natomiast preferują płatności gotówką.
 </pre>
 
 ```{r setup8, include=FALSE }
@@ -988,14 +988,15 @@ grid.arrange(plot_female, plot_male, ncol = 2)
 ## Histogram i wykres pudełkowy
 
 <pre>
-    Histogram przedstawia rozkład ocen w poszczególnych miastach, pokazując, jak często występują określone wartości
-ocen. Dzięki niemu możemy łatwo zauważyć ogólny kształt rozkładu, jego skośność oraz ewentualne wartości odstające.
+    Histogram przedstawia rozkład ocen w poszczególnych miastach, pokazując, jak często występują określone 
+wartości ocen. Dzięki niemu możemy łatwo zauważyć ogólny kształt rozkładu, jego skośność oraz ewentualne 
+wartości odstające.
     
-    Z kolei wykres pudełkowy (boxplot) pozwala lepiej zobaczyć rozkład danych pod kątem ich mediany, kwartylów oraz
-wartości odstających. Środkowa linia w pudełku reprezentuje medianę ocen, a granice pudełka pokazują zakres między
-pierwszym a trzecim kwartylem. Wąsy wskazują wartości minimalne i maksymalne, pomijając odstające obserwacje,
-które są zaznaczone jako osobne punkty. Wykres pudełkowy ułatwia szybkie porównanie mediany ocen między różnymi
-miastami oraz identyfikację ewentualnych różnic w rozproszeniu danych.
+    Z kolei wykres pudełkowy (boxplot) pozwala lepiej zobaczyć rozkład danych pod kątem ich mediany, kwartylów 
+oraz wartości odstających. Środkowa linia w pudełku reprezentuje medianę ocen, a granice pudełka pokazują
+zakres między pierwszym a trzecim kwartylem. Wąsy wskazują wartości minimalne i maksymalne, pomijając
+odstające obserwacje, które są zaznaczone jako osobne punkty. Wykres pudełkowy ułatwia szybkie porównanie 
+mediany ocen między różnymi miastami oraz identyfikację ewentualnych różnic w rozproszeniu danych.
 </pre>
 
 ```{r histogram, inlude=FALSE}
@@ -1036,8 +1037,8 @@ ggplot(data, aes(x = City, y = Rating, fill = City)) +
 
 <pre>
     Wykres słupkowy przedstawia średnią sprzedaż dla każdej linii produktów, co pozwala na szybkie porównanie
-wyników poszczególnych kategorii. Słupki mają kolor niebieski, a ich wysokość odpowiada wartości średniej sprzedaży
-w danej linii produktów.
+wyników poszczególnych kategorii. Słupki mają kolor niebieski, a ich wysokość odpowiada wartości średniej 
+sprzedaży w danej linii produktów.
 </pre>
 
 ```{r wykres słópkowy, inlude=FALSE}
@@ -1210,8 +1211,9 @@ ggplot(data, aes(x = Gender, y = gross.income, fill = Gender)) +
 Wykres przedstawia porównanie całkowitej wartości zakupów w zależności od typu klienta.
     
 Mediana wydatków dla członków programu lojalnościowego (Member) i klientów standardowych (Normal) jest 
-na podobnym poziomie, co sugeruje brak istotnych różnic w przeciętnych wartościach zakupów. Rozkład wydatków
-jest zbliżony dla obu grup, choć występują pojedyncze wartości odstające wskazujące na wyjątkowo wysokie zakupy.
+na podobnym poziomie, co sugeruje brak istotnych różnic w przeciętnych wartościach zakupów. 
+Rozkład wydatków jest zbliżony dla obu grup, choć występują pojedyncze wartości odstające wskazujące na
+wyjątkowo wysokie zakupy.
 
 Ogólnie rzecz biorąc, typ klienta nie wydaje się mieć dużego wpływu na poziom wydatków.
 </pre>
@@ -1470,7 +1472,7 @@ odrzucić H0 mówiące o braku różnic między wartościami zmiennych, a ich me
 
 ### Testy zależności
 
-#### *> Testy zależności dla zmiennej 'Rating'*
+#### *Testy zależności dla zmiennej 'Rating'*
 
 ```{r Testy zależności - Rating1, echo=FALSE, fig.show='hold'}
 ggbetweenstats(
